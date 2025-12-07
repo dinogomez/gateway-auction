@@ -56,13 +56,13 @@ export function ModelSelector({
               className={cn(
                 "relative p-3 text-left border transition-all",
                 isSelected
-                  ? "border-white bg-white text-black"
-                  : "border-neutral-700 hover:border-neutral-500",
+                  ? "border-neutral-900 bg-neutral-900 text-white"
+                  : "border-neutral-900 hover:border-neutral-400 bg-white",
                 disabled && "opacity-50 cursor-not-allowed",
               )}
             >
               {isSelected && (
-                <div className="absolute top-2 right-2 w-5 h-5 bg-black text-white flex items-center justify-center text-xs font-bold">
+                <div className="absolute top-2 right-2 w-5 h-5 bg-white text-neutral-900 flex items-center justify-center text-xs font-bold">
                   ✓
                 </div>
               )}
@@ -75,7 +75,7 @@ export function ModelSelector({
                 <span
                   className={cn(
                     "text-sm font-mono font-bold",
-                    isSelected ? "text-black" : "text-white",
+                    isSelected ? "text-white" : "text-neutral-900",
                   )}
                 >
                   {model.name}
@@ -85,7 +85,7 @@ export function ModelSelector({
               <span
                 className={cn(
                   "text-xs font-mono uppercase",
-                  isSelected ? "text-neutral-600" : "text-neutral-500",
+                  isSelected ? "text-neutral-400" : "text-neutral-700",
                 )}
               >
                 {model.tier}
@@ -95,10 +95,10 @@ export function ModelSelector({
         })}
       </div>
 
-      <div className="text-center text-xs text-neutral-500 font-mono">
+      <div className="text-center text-xs text-neutral-700 font-mono">
         {selected.length}/{maxModels} SELECTED
         {selected.length < minModels && (
-          <span className="text-white ml-2">(MIN {minModels})</span>
+          <span className="text-neutral-900 ml-2">(MIN {minModels})</span>
         )}
       </div>
     </div>

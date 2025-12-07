@@ -716,7 +716,7 @@ export default function PokerGamePage() {
   }, [gameState?.communityCards]);
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-neutral-100">
       {/* Loading Screen with Exit Animation */}
       <AnimatePresence>
         {showLoading && (
@@ -725,7 +725,7 @@ export default function PokerGamePage() {
             initial={{ opacity: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.4, ease: "easeInOut" }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black gap-6"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-neutral-100 gap-6"
           >
             <motion.div
               className="flex gap-3"
@@ -751,13 +751,13 @@ export default function PokerGamePage() {
                       ease: "easeInOut",
                     },
                     rotateY: {
-                      duration: 3,
-                      delay: 1.2 + i * 0.1,
-                      times: [0, 0.4, 0.45, 0.55, 0.6, 1],
+                      duration: 1.2,
+                      delay: 1.2 + i * 0.15,
+                      times: [0, 0.4, 0.5, 0.6, 1],
                       repeat: 0,
                     },
                   }}
-                  className="w-[97px] h-[129px]"
+                  className="w-[97px] h-[129px] border border-neutral-900"
                   style={{
                     backgroundImage: "url(/assets/cards/playing_cards.png)",
                     backgroundSize: `${loadingSpriteWidth}px ${loadingSpriteHeight}px`,
@@ -776,9 +776,9 @@ export default function PokerGamePage() {
                       ],
                     }}
                     transition={{
-                      duration: 0.1,
-                      delay: 1.5 + i * 0.1,
-                      times: [0, 0.9, 1],
+                      duration: 0.01,
+                      delay: 1.2 + 0.6 + i * 0.15, // Change at midpoint of flip (when card is edge-on)
+                      times: [0, 0.99, 1],
                     }}
                     style={{
                       backgroundImage: "url(/assets/cards/playing_cards.png)",
@@ -794,7 +794,7 @@ export default function PokerGamePage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ delay: 0.5 }}
-              className="text-neutral-500 font-mono text-sm"
+              className="text-neutral-700 font-mono text-sm"
             >
               Shuffling Deck
             </motion.div>
@@ -815,15 +815,15 @@ export default function PokerGamePage() {
             <div className="flex items-center justify-between mb-4">
               <button
                 onClick={handleBackToHome}
-                className="text-sm text-neutral-500 hover:text-white transition-colors font-mono"
+                className="text-sm text-neutral-700 hover:text-neutral-900 transition-colors font-mono"
               >
                 ← EXIT
               </button>
               <div className="flex items-center gap-4">
-                <span className="text-xs font-mono text-neutral-500 px-3 py-1 border border-neutral-800">
+                <span className="text-xs font-mono text-neutral-700 px-3 py-1 border border-neutral-900">
                   HAND {gameState.handNumber}/{gameState.totalHands}
                 </span>
-                <span className="text-xs font-mono text-white px-3 py-1 bg-neutral-900 border border-neutral-700 uppercase">
+                <span className="text-xs font-mono text-neutral-900 px-3 py-1 bg-white border border-neutral-900 uppercase">
                   {currentPhase}
                 </span>
               </div>
@@ -832,8 +832,8 @@ export default function PokerGamePage() {
             {/* Main Layout: Left (Action Log) | Center (Board) | Right (Debug) */}
             <div className="grid grid-cols-[250px_1fr_280px] gap-3 mb-4">
               {/* LEFT: Live Action Report */}
-              <div className="border border-neutral-800 p-2 h-[350px] overflow-hidden flex flex-col">
-                <div className="text-[10px] font-mono text-neutral-500 mb-2 pb-2 border-b border-neutral-800">
+              <div className="border border-neutral-900 p-2 h-[350px] overflow-hidden flex flex-col">
+                <div className="text-[10px] font-mono text-neutral-700 mb-2 pb-2 border-b border-neutral-900">
                   LIVE ACTION REPORT
                 </div>
                 <div className="flex-1 overflow-y-auto space-y-1.5">
@@ -868,7 +868,7 @@ export default function PokerGamePage() {
                           entry.type === "thinking" && "bg-purple-500/5",
                           entry.type === "action" && "bg-white/5",
                           entry.type === "phase" && "bg-blue-500/5",
-                          entry.type === "system" && "bg-neutral-800/50 border-dashed",
+                          entry.type === "system" && "bg-neutral-200/50 border-dashed",
                         )}
                       >
                         <div className="flex items-center gap-1.5 mb-0.5">
@@ -876,7 +876,7 @@ export default function PokerGamePage() {
                             className="w-1.5 h-1.5"
                             style={{ backgroundColor: entryDisplayColor }}
                           />
-                          <span className="font-bold text-neutral-300">
+                          <span className="font-bold text-neutral-900">
                             {entry.type === "system" ? "SYSTEM" : entryDisplayName}
                           </span>
                           {entry.type === "thinking" && (
@@ -885,7 +885,7 @@ export default function PokerGamePage() {
                             </span>
                           )}
                         </div>
-                        <div className="text-neutral-400 break-words text-[9px] leading-tight">
+                        <div className="text-neutral-600 break-words text-[9px] leading-tight">
                           {entry.type === "action" && entry.action && (
                             <span
                               className={cn(
@@ -918,10 +918,10 @@ export default function PokerGamePage() {
               </div>
 
               {/* CENTER: Board */}
-              <div className="border border-neutral-800 p-4 flex flex-col items-center justify-center gap-4">
+              <div className="border border-neutral-900 p-4 flex flex-col items-center justify-center gap-4">
                 {/* Pot with NumberFlow animation - no key-based remounting */}
                 <div className="flex flex-col items-center gap-1">
-                  <span className="text-[10px] text-neutral-500 font-mono">
+                  <span className="text-[10px] text-neutral-700 font-mono">
                     POT
                   </span>
                   <div
@@ -931,7 +931,7 @@ export default function PokerGamePage() {
                         "shadow-[0_0_10px_rgba(255,255,255,0.2)]",
                     )}
                   >
-                    <span className="text-2xl font-bold text-white font-mono flex items-center">
+                    <span className="text-2xl font-bold text-neutral-900 font-mono flex items-center">
                       $
                       <NumberFlow
                         value={currentPotSize}
@@ -955,7 +955,7 @@ export default function PokerGamePage() {
                           initial={{ opacity: 0.3 }}
                           animate={{ opacity: 0.6 }}
                           transition={{ duration: 0.5 }}
-                          className="w-[97px] h-[129px] border border-neutral-700 flex items-center justify-center"
+                          className="w-[97px] h-[129px] border border-neutral-900 flex items-center justify-center"
                         >
                           <span className="text-neutral-600 text-xs font-mono">
                             {i < 3 ? "FLOP" : i === 3 ? "TURN" : "RIVER"}
@@ -969,7 +969,7 @@ export default function PokerGamePage() {
                 {/* Current Player Indicator */}
                 {gameState.status === "betting" && currentPlayer && (
                   <div className="flex flex-col items-center gap-1">
-                    <div className="flex items-center gap-2 px-4 py-2 bg-black border border-white">
+                    <div className="flex items-center gap-2 px-4 py-2 bg-neutral-900 border border-neutral-900">
                       <div className="w-2 h-2 bg-white animate-pulse" />
                       <span className="text-sm font-mono text-white">
                         {getDisplayName(currentPlayer.id)}'s Turn
@@ -982,7 +982,7 @@ export default function PokerGamePage() {
                           ? "text-red-500"
                           : turnTimer <= 20
                             ? "text-yellow-500"
-                            : "text-neutral-400",
+                            : "text-neutral-600",
                       )}
                     >
                       {turnTimer}s
@@ -998,7 +998,7 @@ export default function PokerGamePage() {
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.8 }}
                       transition={{ duration: 0.4, ease: "easeOut" }}
-                      className="text-xl font-bold text-white font-mono"
+                      className="text-xl font-bold text-neutral-900 font-mono"
                     >
                       <motion.span
                         animate={{ opacity: [1, 0.5, 1] }}
@@ -1050,7 +1050,7 @@ export default function PokerGamePage() {
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 transition={{ duration: 0.3, delay: 0.4 }}
-                                className="text-2xl font-bold text-white font-mono flex items-center justify-center"
+                                className="text-2xl font-bold text-neutral-900 font-mono flex items-center justify-center"
                               >
                                 +$
                                 <NumberFlow value={winner.amount} />
@@ -1060,7 +1060,7 @@ export default function PokerGamePage() {
                                   initial={{ opacity: 0 }}
                                   animate={{ opacity: 1 }}
                                   transition={{ duration: 0.3, delay: 0.5 }}
-                                  className="text-sm text-neutral-400 font-mono"
+                                  className="text-sm text-neutral-600 font-mono"
                                 >
                                   {winner.hand.description}
                                 </motion.div>
@@ -1084,7 +1084,7 @@ export default function PokerGamePage() {
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
                               transition={{ delay: 0.6 }}
-                              className="mt-2 text-sm text-neutral-400 font-mono"
+                              className="mt-2 text-sm text-neutral-600 font-mono"
                             >
                               Next hand in {nextHandCountdown ?? 0}s
                             </motion.div>
@@ -1096,9 +1096,9 @@ export default function PokerGamePage() {
               </div>
 
               {/* RIGHT: Metrics Panel */}
-              <div className="border border-neutral-800 p-3 h-[350px] overflow-hidden flex flex-col">
+              <div className="border border-neutral-900 p-3 h-[350px] overflow-hidden flex flex-col">
                 {/* Chip Leaderboard */}
-                <div className="text-[10px] font-mono text-neutral-500 mb-2 uppercase tracking-wider">
+                <div className="text-[10px] font-mono text-neutral-700 mb-2 uppercase tracking-wider">
                   Leaderboard
                 </div>
                 <div className="space-y-1 mb-3">
@@ -1122,7 +1122,7 @@ export default function PokerGamePage() {
                           key={player.id}
                           className={cn(
                             "flex items-center justify-between py-1 px-2",
-                            idx === 0 && "bg-neutral-900",
+                            idx === 0 && "bg-white",
                           )}
                         >
                           <div className="flex items-center gap-2 min-w-0">
@@ -1133,12 +1133,12 @@ export default function PokerGamePage() {
                               className="w-2 h-2 shrink-0"
                               style={{ backgroundColor: displayColor }}
                             />
-                            <span className="text-[11px] font-mono text-white truncate">
+                            <span className="text-[11px] font-mono text-neutral-900 truncate">
                               {displayName}
                             </span>
                           </div>
                           <div className="flex items-center shrink-0">
-                            <span className="text-[11px] font-mono font-bold text-white tabular-nums w-16 text-right">
+                            <span className="text-[11px] font-mono font-bold text-neutral-900 tabular-nums w-16 text-right">
                               ${state.chipStack.toLocaleString()}
                             </span>
                             <span className={cn(
@@ -1171,10 +1171,10 @@ export default function PokerGamePage() {
                 </div>
 
                 {/* Separator */}
-                <div className="border-t border-neutral-800 my-2" />
+                <div className="border-t border-neutral-900 my-2" />
 
                 {/* Win Odds Section */}
-                <div className="text-[10px] font-mono text-neutral-500 mb-2 uppercase tracking-wider">
+                <div className="text-[10px] font-mono text-neutral-700 mb-2 uppercase tracking-wider">
                   Win Probability
                 </div>
                 <div className="flex-1 overflow-y-auto space-y-2">
@@ -1197,22 +1197,22 @@ export default function PokerGamePage() {
                       const winPercent = isFolded ? 0 : (odds?.winPercentage ?? 0);
 
                       return (
-                        <div key={player.id} className={cn("px-2", isFolded && "opacity-40")}>
+                        <div key={player.id} className={cn("px-2", isFolded && "opacity-70")}>
                           <div className="flex items-center justify-between mb-0.5">
                             <div className="flex items-center gap-1.5">
                               <div
                                 className="w-2 h-2 shrink-0"
                                 style={{ backgroundColor: displayColor }}
                               />
-                              <span className="text-[10px] font-mono text-neutral-400 truncate">
+                              <span className="text-[10px] font-mono text-neutral-600 truncate">
                                 {displayName}
                               </span>
                             </div>
-                            <span className="text-[10px] font-mono font-bold tabular-nums text-neutral-400">
+                            <span className="text-[10px] font-mono font-bold tabular-nums text-neutral-600">
                               {isFolded ? "FOLD" : `${winPercent.toFixed(0)}%`}
                             </span>
                           </div>
-                          <div className="h-1.5 bg-neutral-800 overflow-hidden">
+                          <div className="h-1.5 bg-neutral-200 overflow-hidden">
                             <motion.div
                               className={cn(
                                 "h-full",
@@ -1275,9 +1275,8 @@ export default function PokerGamePage() {
                     transition={{ duration: 0.3, ease: "easeOut" }}
                     style={{ zIndex: isCurrentTurn ? 10 : 1 }}
                     className={cn(
-                      "relative bg-neutral-950 overflow-hidden transition-all duration-300",
-                      isCurrentTurn && "ring-2 ring-white shadow-[0_0_30px_rgba(255,255,255,0.15)]",
-                      !isCurrentTurn && !isFolded && lastAction && `ring-1 ring-${accentColor}/50`,
+                      "relative bg-white overflow-hidden transition-all duration-300 border border-neutral-900",
+                      isCurrentTurn && "shadow-md",
                       isFolded && "opacity-60",
                     )}
                   >
@@ -1285,7 +1284,7 @@ export default function PokerGamePage() {
                     <div className="flex items-center justify-between gap-2 px-3 pt-2 pb-1 min-h-[24px]">
                       {/* Total bet this hand */}
                       {state.totalBetThisHand > 0 && (
-                        <span className="text-[10px] font-mono text-neutral-500 tabular-nums">
+                        <span className="text-[10px] font-mono text-neutral-700 tabular-nums">
                           In pot: ${state.totalBetThisHand}
                         </span>
                       )}
@@ -1299,10 +1298,10 @@ export default function PokerGamePage() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="flex items-center gap-1 px-2 py-0.5 bg-purple-500/20"
+                            className="flex items-center gap-1 px-2 py-0.5 bg-purple-600"
                           >
-                            <div className="w-1.5 h-1.5 bg-purple-400 animate-pulse" />
-                            <span className="text-[9px] font-mono font-bold text-purple-400">
+                            <div className="w-1.5 h-1.5 bg-white animate-pulse" />
+                            <span className="text-[9px] font-mono font-bold text-white">
                               THINKING
                             </span>
                           </motion.div>
@@ -1312,7 +1311,7 @@ export default function PokerGamePage() {
                             key="folded"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="text-[9px] font-mono text-neutral-600 px-2 py-0.5 bg-neutral-800/50"
+                            className="text-[9px] font-mono text-neutral-200 px-2 py-0.5 bg-neutral-700"
                           >
                             FOLDED
                           </motion.div>
@@ -1322,7 +1321,7 @@ export default function PokerGamePage() {
                             key="all-in"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="text-[9px] font-mono font-bold text-yellow-400 px-2 py-0.5 bg-yellow-500/20"
+                            className="text-[9px] font-mono font-bold text-neutral-900 px-2 py-0.5 bg-yellow-400"
                           >
                             ALL IN
                           </motion.div>
@@ -1333,7 +1332,7 @@ export default function PokerGamePage() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="text-[9px] font-mono font-bold px-2 py-0.5 bg-green-500/20 text-green-400"
+                            className="text-[9px] font-mono font-bold px-2 py-0.5 bg-green-600 text-white"
                           >
                             CHECK
                           </motion.div>
@@ -1346,9 +1345,9 @@ export default function PokerGamePage() {
                             exit={{ opacity: 0 }}
                             className={cn(
                               "flex items-center gap-1 px-2 py-0.5 text-[9px] font-mono font-bold",
-                              lastActions[playerId]?.action === "raise" && "bg-amber-500/20 text-amber-400",
-                              lastActions[playerId]?.action === "call" && "bg-blue-500/20 text-blue-400",
-                              lastActions[playerId]?.action === "all-in" && "bg-yellow-500/20 text-yellow-400",
+                              lastActions[playerId]?.action === "raise" && "bg-amber-500 text-neutral-900",
+                              lastActions[playerId]?.action === "call" && "bg-blue-600 text-white",
+                              lastActions[playerId]?.action === "all-in" && "bg-yellow-400 text-neutral-900",
                             )}
                           >
                             <span>
@@ -1377,8 +1376,8 @@ export default function PokerGamePage() {
                           ))
                         ) : (
                           <>
-                            <div className="w-16 h-[86px] bg-neutral-900 border border-neutral-800" />
-                            <div className="w-16 h-[86px] bg-neutral-900 border border-neutral-800" />
+                            <div className="w-16 h-[86px] bg-white border border-neutral-900" />
+                            <div className="w-16 h-[86px] bg-white border border-neutral-900" />
                           </>
                         )}
                       </div>
@@ -1386,7 +1385,7 @@ export default function PokerGamePage() {
                       {/* Stack Amount - below cards */}
                       <div className="text-center mb-2">
                         <span className="relative inline-flex items-center justify-center">
-                          <span className="font-mono font-bold text-white text-lg tabular-nums">
+                          <span className="font-mono font-bold text-neutral-900 text-lg tabular-nums">
                             $<NumberFlow value={state.chipStack} />
                           </span>
                           <AnimatePresence>
@@ -1420,7 +1419,7 @@ export default function PokerGamePage() {
                       {/* Hand Info - Only show when visible */}
                       {!isFolded && (isSpectating || isShowdown || isHandComplete) && hand && (
                         <div className="text-center mb-2">
-                          <span className="text-[10px] font-mono text-neutral-300 bg-neutral-800/50 px-2 py-0.5">
+                          <span className="text-[10px] font-mono text-white bg-neutral-700 px-2 py-0.5">
                             {HAND_RANK_NAMES[hand.rank]}
                           </span>
                         </div>
@@ -1454,7 +1453,7 @@ export default function PokerGamePage() {
                             <span
                               className={cn(
                                 "font-mono font-bold text-xs truncate",
-                                isFolded ? "text-neutral-500" : "text-white",
+                                isFolded ? "text-neutral-700" : "text-neutral-900",
                               )}
                             >
                               {displayName}
@@ -1467,7 +1466,7 @@ export default function PokerGamePage() {
                           </div>
                           {/* Role tags */}
                           {(state.isDealer || state.isSmallBlind || state.isBigBlind || (isRevealed && player.name !== displayName)) && (
-                            <div className="text-[9px] font-mono text-neutral-500 mt-0.5">
+                            <div className="text-[9px] font-mono text-neutral-700 mt-0.5">
                               {state.isDealer && "Dealer"}
                               {state.isDealer && (state.isSmallBlind || state.isBigBlind) && " · "}
                               {state.isSmallBlind && "Small Blind"}
@@ -1527,19 +1526,19 @@ export default function PokerGamePage() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.3 }}
-                  className="fixed inset-0 bg-black/95 flex items-center justify-center z-50"
+                  className="fixed inset-0 bg-white/95 flex items-center justify-center z-50"
                 >
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.9, y: 20 }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
-                    className="w-full max-w-lg p-8 border border-neutral-700 bg-neutral-950 relative"
+                    className="w-full max-w-lg p-8 border border-neutral-900 bg-white relative"
                   >
                     {/* Close Button */}
                     <button
                       onClick={() => setShowScoreboard(false)}
-                      className="absolute top-4 right-4 p-2 text-neutral-500 hover:text-white transition-colors"
+                      className="absolute top-4 right-4 p-2 text-neutral-700 hover:text-neutral-900 transition-colors"
                       aria-label="Close scoreboard"
                     >
                       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1553,7 +1552,7 @@ export default function PokerGamePage() {
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
-                        className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest mb-2"
+                        className="text-[10px] font-mono text-neutral-700 uppercase tracking-widest mb-2"
                       >
                         Final Results
                       </motion.div>
@@ -1561,7 +1560,7 @@ export default function PokerGamePage() {
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-                        className="text-3xl font-bold text-white font-mono tracking-wide"
+                        className="text-3xl font-bold text-neutral-900 font-mono tracking-wide"
                       >
                         GAME OVER
                       </motion.h2>
@@ -1584,7 +1583,7 @@ export default function PokerGamePage() {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.4 }}
-                          className="text-center mb-8 p-6 border border-neutral-800 bg-neutral-900/50"
+                          className="text-center mb-8 p-6 border border-neutral-900 bg-white/50"
                         >
                           <div className="flex items-center justify-center gap-4 mb-4">
                             {characterInfo && (
@@ -1599,7 +1598,7 @@ export default function PokerGamePage() {
                               </div>
                             )}
                             <div className="text-left">
-                              <div className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider mb-1">
+                              <div className="text-[10px] font-mono text-neutral-700 uppercase tracking-wider mb-1">
                                 Champion
                               </div>
                               <div
@@ -1609,7 +1608,7 @@ export default function PokerGamePage() {
                                 {player?.name}
                               </div>
                               {characterInfo && (
-                                <div className="text-xs text-neutral-500 font-mono">
+                                <div className="text-xs text-neutral-700 font-mono">
                                   as {characterInfo.name}
                                 </div>
                               )}
@@ -1618,11 +1617,11 @@ export default function PokerGamePage() {
                           <div className="flex items-center justify-center gap-6">
                             <div>
                               <div className="text-[10px] font-mono text-neutral-600 uppercase">Final Stack</div>
-                              <div className="text-3xl font-bold text-white font-mono tabular-nums">
+                              <div className="text-3xl font-bold text-neutral-900 font-mono tabular-nums">
                                 ${winner.chipStack.toLocaleString()}
                               </div>
                             </div>
-                            <div className="w-px h-12 bg-neutral-800" />
+                            <div className="w-px h-12 bg-neutral-200" />
                             <div>
                               <div className="text-[10px] font-mono text-neutral-600 uppercase">Profit</div>
                               <div className={cn(
@@ -1652,7 +1651,7 @@ export default function PokerGamePage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.5 }}
                     >
-                      <div className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider mb-3">
+                      <div className="text-[10px] font-mono text-neutral-700 uppercase tracking-wider mb-3">
                         Final Standings — Model Reveal
                       </div>
                       <div className="space-y-2">
@@ -1677,21 +1676,21 @@ export default function PokerGamePage() {
                                 className={cn(
                                   "flex items-center justify-between py-3 px-4 border transition-colors",
                                   isWinner
-                                    ? "bg-neutral-800/50 border-neutral-600"
-                                    : "bg-neutral-900/30 border-neutral-800 hover:bg-neutral-800/30"
+                                    ? "bg-neutral-200/50 border-neutral-600"
+                                    : "bg-white/30 border-neutral-900 hover:bg-neutral-200/30"
                                 )}
                               >
                                 <div className="flex items-center gap-3">
                                   <span className={cn(
                                     "text-sm font-mono w-6 text-center",
-                                    isWinner ? "text-white font-bold" : "text-neutral-500"
+                                    isWinner ? "text-neutral-900 font-bold" : "text-neutral-700"
                                   )}>
                                     {index + 1}
                                   </span>
                                   {characterInfo && (
                                     <div className={cn(
                                       "relative w-8 h-8 overflow-hidden shrink-0",
-                                      isWinner ? "border border-white" : "border border-neutral-700"
+                                      isWinner ? "border border-white" : "border border-neutral-900"
                                     )}>
                                       <Image
                                         src={characterInfo.portrait}
@@ -1720,14 +1719,14 @@ export default function PokerGamePage() {
                                       )}
                                     </div>
                                     {characterInfo && (
-                                      <span className="text-[10px] text-neutral-500 font-mono">
+                                      <span className="text-[10px] text-neutral-700 font-mono">
                                         as {characterInfo.name}
                                       </span>
                                     )}
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-4 shrink-0">
-                                  <span className="text-white font-mono font-bold tabular-nums w-20 text-right">
+                                  <span className="text-neutral-900 font-mono font-bold tabular-nums w-20 text-right">
                                     ${state.chipStack.toLocaleString()}
                                   </span>
                                   <span className={cn(
@@ -1769,7 +1768,7 @@ export default function PokerGamePage() {
                     >
                       <button
                         onClick={() => setShowScoreboard(false)}
-                        className="flex-1 py-3 bg-neutral-800 text-white font-mono font-bold hover:bg-neutral-700 transition-colors border border-neutral-700"
+                        className="flex-1 py-3 bg-neutral-200 text-neutral-900 font-mono font-bold hover:bg-neutral-300 transition-colors border border-neutral-900"
                       >
                         CLOSE
                       </button>

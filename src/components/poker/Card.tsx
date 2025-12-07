@@ -125,7 +125,7 @@ export function Card({
         <div
           className={cn(
             sizeClasses[size],
-            "relative overflow-hidden",
+            "relative overflow-hidden border border-neutral-900",
             className,
           )}
           style={{
@@ -142,7 +142,7 @@ export function Card({
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, delay, ease: "easeOut" }}
-        className={cn(sizeClasses[size], "relative overflow-hidden", className)}
+        className={cn(sizeClasses[size], "relative overflow-hidden border border-neutral-900", className)}
         style={{
           ...animatedStyle,
           backgroundPosition: `${backPos.x}px ${backPos.y}px`,
@@ -157,7 +157,7 @@ export function Card({
   if (!animate) {
     return (
       <div
-        className={cn(sizeClasses[size], "relative overflow-hidden", className)}
+        className={cn(sizeClasses[size], "relative overflow-hidden border border-neutral-900", className)}
         style={{
           ...baseStyle,
           backgroundPosition: `${pos.x}px ${pos.y}px`,
@@ -172,7 +172,7 @@ export function Card({
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, delay, ease: "easeOut" }}
-      className={cn(sizeClasses[size], "relative overflow-hidden", className)}
+      className={cn(sizeClasses[size], "relative overflow-hidden border border-neutral-900", className)}
       style={{
         ...animatedStyle,
         backgroundPosition: `${pos.x}px ${pos.y}px`,
@@ -200,7 +200,7 @@ export function MiniCard({
     <span
       className={cn(
         "inline-flex items-center gap-0.5 px-1 py-0.5",
-        "bg-white border border-neutral-300",
+        "bg-white border border-neutral-900",
         "font-mono text-sm font-bold",
         className,
       )}
@@ -226,8 +226,8 @@ export function CardPlaceholder({
     <div
       className={cn(
         sizeClasses[size],
-        "border border-dashed border-neutral-700",
-        "bg-neutral-900/30",
+        "border border-dashed border-neutral-900",
+        "bg-neutral-200/50",
         className,
       )}
     />

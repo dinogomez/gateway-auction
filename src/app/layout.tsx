@@ -1,5 +1,4 @@
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
-import { CRTEffect } from "@/components/CRTEffect";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
@@ -27,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
         {process.env.NODE_ENV === "development" && (
           <>
@@ -43,10 +42,9 @@ export default function RootLayout({
         )}
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-black text-white min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-neutral-100 text-neutral-900 min-h-screen`}
       >
         <ConvexClientProvider>{children}</ConvexClientProvider>
-        <CRTEffect />
       </body>
     </html>
   );

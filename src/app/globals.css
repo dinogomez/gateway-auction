@@ -7,10 +7,10 @@
 
 @layer base {
   * {
-    @apply border-neutral-800;
+    @apply border-neutral-900;
   }
   body {
-    @apply bg-black text-white;
+    @apply bg-neutral-100 text-neutral-900;
   }
 }
 

@@ -53,19 +53,19 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-neutral-50">
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <header className="text-center space-y-4 mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-1 border border-neutral-700">
-            <span className="text-neutral-400 text-sm font-mono">
+          <div className="inline-flex items-center gap-2 px-4 py-1 border border-neutral-300 bg-white">
+            <span className="text-neutral-600 text-sm font-mono">
               VERCEL AI HACKATHON
             </span>
           </div>
           <h1 className="text-5xl font-mono">
-            <span className="text-white">GATEWAY POKER</span>{" "}
+            <span className="text-neutral-900">GATEWAY POKER</span>{" "}
           </h1>
-          <p className="text-lg text-neutral-500 max-w-xl mx-auto font-mono">
+          <p className="text-lg text-neutral-700 max-w-xl mx-auto font-mono">
             Watch AI models compete in Texas Hold&apos;em. Real-time strategic
             decision making.
           </p>
@@ -75,8 +75,8 @@ export default function Home() {
           {/* Left: Game Setup */}
           <div className="lg:col-span-2 space-y-6">
             {/* Mode Selection */}
-            <div className="p-6 bg-black border border-neutral-800">
-              <h2 className="text-lg font-mono font-bold mb-4 text-white">
+            <div className="p-6 bg-white border border-neutral-900 shadow-sm">
+              <h2 className="text-lg font-mono font-bold mb-4 text-neutral-900">
                 MODE
               </h2>
               <div className="grid grid-cols-2 gap-4">
@@ -85,8 +85,8 @@ export default function Home() {
                   className={cn(
                     "p-4 border transition-all text-left",
                     playMode === "spectate"
-                      ? "border-white bg-white text-black"
-                      : "border-neutral-700 hover:border-neutral-500 text-white",
+                      ? "border-neutral-900 bg-neutral-900 text-white"
+                      : "border-neutral-300 hover:border-neutral-400 text-neutral-900 bg-white",
                   )}
                 >
                   <div className="font-mono font-bold text-lg mb-1">
@@ -96,8 +96,8 @@ export default function Home() {
                     className={cn(
                       "text-sm font-mono",
                       playMode === "spectate"
-                        ? "text-neutral-700"
-                        : "text-neutral-500",
+                        ? "text-neutral-400"
+                        : "text-neutral-700",
                     )}
                   >
                     Watch AI models compete
@@ -108,8 +108,8 @@ export default function Home() {
                   className={cn(
                     "p-4 border transition-all text-left",
                     playMode === "play"
-                      ? "border-white bg-white text-black"
-                      : "border-neutral-700 hover:border-neutral-500 text-white",
+                      ? "border-neutral-900 bg-neutral-900 text-white"
+                      : "border-neutral-300 hover:border-neutral-400 text-neutral-900 bg-white",
                   )}
                 >
                   <div className="font-mono font-bold text-lg mb-1">PLAY</div>
@@ -117,8 +117,8 @@ export default function Home() {
                     className={cn(
                       "text-sm font-mono",
                       playMode === "play"
-                        ? "text-neutral-700"
-                        : "text-neutral-500",
+                        ? "text-neutral-400"
+                        : "text-neutral-700",
                     )}
                   >
                     Join and compete
@@ -128,8 +128,8 @@ export default function Home() {
             </div>
 
             {/* Model Selection */}
-            <div className="p-6 bg-black border border-neutral-800">
-              <h2 className="text-lg font-mono font-bold mb-4 text-white">
+            <div className="p-6 bg-white border border-neutral-900 shadow-sm">
+              <h2 className="text-lg font-mono font-bold mb-4 text-neutral-900">
                 AI PLAYERS
               </h2>
               <ModelSelector
@@ -147,8 +147,8 @@ export default function Home() {
               className={cn(
                 "w-full py-4 font-mono font-bold text-lg transition-colors",
                 selectedModels.length >= 2 && !isStarting
-                  ? "bg-white text-black hover:bg-neutral-200"
-                  : "bg-neutral-900 text-neutral-600 cursor-not-allowed",
+                  ? "bg-neutral-900 text-white hover:bg-neutral-800"
+                  : "bg-neutral-200 text-neutral-400 cursor-not-allowed",
               )}
             >
               {isStarting ? "STARTING..." : "START GAME"}
@@ -156,46 +156,46 @@ export default function Home() {
 
             {/* Game Info */}
             <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="p-4 bg-neutral-900 border border-neutral-800">
-                <div className="text-2xl font-bold text-white font-mono">
+              <div className="p-4 bg-white border border-neutral-900 shadow-sm">
+                <div className="text-2xl font-bold text-neutral-900 font-mono">
                   ${DEFAULT_POKER_CONFIG.startingChips.toLocaleString()}
                 </div>
-                <div className="text-xs text-neutral-500 font-mono">CHIPS</div>
+                <div className="text-xs text-neutral-700 font-mono">CHIPS</div>
               </div>
-              <div className="p-4 bg-neutral-900 border border-neutral-800">
-                <div className="text-2xl font-bold text-white font-mono">
+              <div className="p-4 bg-white border border-neutral-900 shadow-sm">
+                <div className="text-2xl font-bold text-neutral-900 font-mono">
                   {DEFAULT_POKER_CONFIG.totalHands}
                 </div>
-                <div className="text-xs text-neutral-500 font-mono">HANDS</div>
+                <div className="text-xs text-neutral-700 font-mono">HANDS</div>
               </div>
-              <div className="p-4 bg-neutral-900 border border-neutral-800">
-                <div className="text-2xl font-bold text-white font-mono">
+              <div className="p-4 bg-white border border-neutral-900 shadow-sm">
+                <div className="text-2xl font-bold text-neutral-900 font-mono">
                   ${DEFAULT_POKER_CONFIG.smallBlind}/$
                   {DEFAULT_POKER_CONFIG.bigBlind}
                 </div>
-                <div className="text-xs text-neutral-500 font-mono">BLINDS</div>
+                <div className="text-xs text-neutral-700 font-mono">BLINDS</div>
               </div>
             </div>
           </div>
 
           {/* Right: Leaderboard */}
           <div className="space-y-6">
-            <div className="p-6 bg-black border border-neutral-800">
+            <div className="p-6 bg-white border border-neutral-900 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-mono font-bold text-white">
+                <h2 className="text-lg font-mono font-bold text-neutral-900">
                   LEADERBOARD
                 </h2>
-                <span className="text-xs font-mono text-neutral-500 px-2 py-1 border border-neutral-700">
+                <span className="text-xs font-mono text-white px-2 py-1 border border-neutral-900 bg-neutral-900">
                   LIVE
                 </span>
               </div>
 
               {!leaderboard ? (
-                <div className="text-center py-8 text-neutral-500 font-mono">
+                <div className="text-center py-8 text-neutral-700 font-mono">
                   Loading...
                 </div>
               ) : leaderboard.length === 0 ? (
-                <div className="text-center py-8 text-neutral-500 font-mono">
+                <div className="text-center py-8 text-neutral-700 font-mono">
                   No games yet
                 </div>
               ) : (
@@ -206,8 +206,8 @@ export default function Home() {
                       className={cn(
                         "flex items-center justify-between p-3 border",
                         index === 0
-                          ? "border-white bg-white text-black"
-                          : "border-neutral-800",
+                          ? "border-neutral-900 bg-neutral-900 text-white"
+                          : "border-neutral-900 bg-white",
                       )}
                     >
                       <div className="flex items-center gap-3">
@@ -215,8 +215,8 @@ export default function Home() {
                           className={cn(
                             "w-6 h-6 flex items-center justify-center font-mono font-bold text-sm",
                             index === 0
-                              ? "bg-black text-white"
-                              : "bg-neutral-800 text-neutral-400",
+                              ? "bg-white text-neutral-900"
+                              : "bg-neutral-100 text-neutral-600",
                           )}
                         >
                           {index + 1}
@@ -229,8 +229,8 @@ export default function Home() {
                             className={cn(
                               "text-xs font-mono",
                               index === 0
-                                ? "text-neutral-700"
-                                : "text-neutral-500",
+                                ? "text-neutral-400"
+                                : "text-neutral-700",
                             )}
                           >
                             {player.handsPlayed} hands
@@ -242,11 +242,11 @@ export default function Home() {
                           "font-mono font-bold",
                           index === 0
                             ? player.totalProfit >= 0
-                              ? "text-black"
-                              : "text-neutral-700"
-                            : player.totalProfit >= 0
                               ? "text-white"
-                              : "text-neutral-500",
+                              : "text-neutral-400"
+                            : player.totalProfit >= 0
+                              ? "text-neutral-900"
+                              : "text-neutral-700",
                         )}
                       >
                         {player.totalProfit >= 0 ? "+" : ""}$
@@ -260,40 +260,40 @@ export default function Home() {
 
             {/* Stats */}
             {stats && (
-              <div className="p-6 bg-black border border-neutral-800">
-                <h3 className="text-sm font-mono font-bold text-neutral-500 mb-4">
+              <div className="p-6 bg-white border border-neutral-900 shadow-sm">
+                <h3 className="text-sm font-mono font-bold text-neutral-700 mb-4">
                   ALL-TIME STATS
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-2xl font-bold font-mono text-white">
+                    <div className="text-2xl font-bold font-mono text-neutral-900">
                       {stats.totalGames}
                     </div>
-                    <div className="text-xs text-neutral-500 font-mono">
+                    <div className="text-xs text-neutral-700 font-mono">
                       GAMES
                     </div>
                   </div>
                   <div>
-                    <div className="text-2xl font-bold font-mono text-white">
+                    <div className="text-2xl font-bold font-mono text-neutral-900">
                       {stats.totalHands}
                     </div>
-                    <div className="text-xs text-neutral-500 font-mono">
+                    <div className="text-xs text-neutral-700 font-mono">
                       HANDS
                     </div>
                   </div>
                   <div>
-                    <div className="text-2xl font-bold font-mono text-white">
+                    <div className="text-2xl font-bold font-mono text-neutral-900">
                       {stats.totalPlayers}
                     </div>
-                    <div className="text-xs text-neutral-500 font-mono">
+                    <div className="text-xs text-neutral-700 font-mono">
                       MODELS
                     </div>
                   </div>
                   <div>
-                    <div className="text-2xl font-bold font-mono text-white">
+                    <div className="text-2xl font-bold font-mono text-neutral-900">
                       {stats.topByProfit?.[0]?.modelName?.slice(0, 8) || "-"}
                     </div>
-                    <div className="text-xs text-neutral-500 font-mono">
+                    <div className="text-xs text-neutral-700 font-mono">
                       TOP
                     </div>
                   </div>
@@ -302,32 +302,32 @@ export default function Home() {
             )}
 
             {/* How It Works */}
-            <div className="p-6 bg-black border border-neutral-800">
-              <h3 className="text-sm font-mono font-bold text-neutral-500 mb-4">
+            <div className="p-6 bg-white border border-neutral-900 shadow-sm">
+              <h3 className="text-sm font-mono font-bold text-neutral-700 mb-4">
                 HOW IT WORKS
               </h3>
               <div className="space-y-3 text-sm font-mono">
                 <div className="flex gap-3">
-                  <span className="w-6 h-6 bg-white text-black flex items-center justify-center font-bold">
+                  <span className="w-6 h-6 bg-neutral-900 text-white flex items-center justify-center font-bold">
                     1
                   </span>
-                  <span className="text-neutral-400">
+                  <span className="text-neutral-600">
                     Each AI receives 2 hole cards
                   </span>
                 </div>
                 <div className="flex gap-3">
-                  <span className="w-6 h-6 bg-white text-black flex items-center justify-center font-bold">
+                  <span className="w-6 h-6 bg-neutral-900 text-white flex items-center justify-center font-bold">
                     2
                   </span>
-                  <span className="text-neutral-400">
+                  <span className="text-neutral-600">
                     Watch them bet, raise, or fold
                   </span>
                 </div>
                 <div className="flex gap-3">
-                  <span className="w-6 h-6 bg-white text-black flex items-center justify-center font-bold">
+                  <span className="w-6 h-6 bg-neutral-900 text-white flex items-center justify-center font-bold">
                     3
                   </span>
-                  <span className="text-neutral-400">
+                  <span className="text-neutral-600">
                     Best hand wins at showdown
                   </span>
                 </div>
@@ -337,14 +337,14 @@ export default function Home() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center mt-12 pt-8 border-t border-neutral-800">
-          <p className="text-sm text-neutral-500 font-mono">
+        <footer className="text-center mt-12 pt-8 border-t border-neutral-900">
+          <p className="text-sm text-neutral-700 font-mono">
             Built with{" "}
             <a
               href="https://sdk.vercel.ai"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-white hover:underline"
+              className="text-neutral-900 hover:underline"
             >
               Vercel AI SDK
             </a>{" "}
@@ -353,7 +353,7 @@ export default function Home() {
               href="https://gateway.vercel.ai"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-white hover:underline"
+              className="text-neutral-900 hover:underline"
             >
               AI Gateway
             </a>
