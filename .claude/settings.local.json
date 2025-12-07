@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bun add:*)",
+      "Bash(bun run build:*)",
+      "Bash(timeout 10 bun dev:*)",
+      "Bash(bun run format:*)",
+      "WebFetch(domain:ai-sdk.dev)",
+      "Bash(cat:*)",
+      "Bash(dir:*)",
+      "Bash(find:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
