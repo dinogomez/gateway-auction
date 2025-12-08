@@ -1,6 +1,10 @@
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
+import { CRTProvider } from "@/components/crt/CRTProvider";
+import { EffectsBanner } from "@/components/EffectsBanner";
+import { MobileBlocker } from "@/components/MobileBlocker";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import Script from "next/script";
 import "./globals.css";
 
@@ -44,7 +48,14 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-neutral-100 text-neutral-900 min-h-screen`}
       >
-        <ConvexClientProvider>{children}</ConvexClientProvider>
+        <NuqsAdapter>
+          <MobileBlocker>
+            <EffectsBanner />
+            <CRTProvider>
+              <ConvexClientProvider>{children}</ConvexClientProvider>
+            </CRTProvider>
+          </MobileBlocker>
+        </NuqsAdapter>
       </body>
     </html>
   );

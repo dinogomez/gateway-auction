@@ -24,16 +24,22 @@ export async function POST(req: Request) {
     // Use GPT-4o-mini for fast, cheap summarization
     const result = await generateText({
       model: gateway("openai/gpt-4o-mini"),
-      system: `You summarize poker player thinking into a single brief sentence (max 15 words).
-Focus on the KEY REASON for their decision, not the action itself.
-Examples:
-- "Weak hand with bad position, not worth the risk"
-- "Strong pocket pair, building the pot early"
-- "Good pot odds with flush draw potential"
-- "Opponent likely bluffing based on betting pattern"
-Do NOT mention the action (fold/call/raise) - just the reasoning.
+      system: `You summarize WHY a poker player chose their specific action in one brief sentence (max 15 words).
+The player's ACTUAL action is provided - explain the reasoning that led to THAT action.
+Focus on the KEY REASON for their decision.
+Examples for FOLD:
+- "Weak hand not worth the investment"
+- "Too risky against aggressive betting"
+- "Poor odds with marginal holdings"
+Examples for CALL:
+- "Good pot odds with draw potential"
+- "Keeping opponent honest"
+Examples for RAISE:
+- "Strong hand, building the pot"
+- "Applying pressure with position advantage"
+Do NOT mention the action itself - just the reasoning.
 Be concise and natural sounding.`,
-      prompt: `Summarize this poker thinking in one brief sentence:\n\n${thinking.slice(0, 1000)}`,
+      prompt: `The player chose to ${action?.toUpperCase() || "act"}. Summarize WHY in one brief sentence:\n\n${thinking.slice(0, 1000)}`,
       maxOutputTokens: 50,
       temperature: 0.3,
     });

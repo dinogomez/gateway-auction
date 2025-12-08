@@ -10,7 +10,10 @@
       "Bash(dir:*)",
       "Bash(find:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(grep:*)",
+      "Bash(bun remove:*)",
+      "Bash(bun run lint)"
     ],
     "deny": [],
     "ask": []

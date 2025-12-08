@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { Card as CardType } from "@/types/poker";
@@ -84,14 +85,14 @@ function getSpritePosition(
 /**
  * Get sprite background position for card back (column 0, row 0 for gray back)
  */
-function getBackPosition(scale: number): { x: number; y: number } {
+function getBackPosition(): { x: number; y: number } {
   return {
     x: 0, // Column 0
     y: 0, // Row 0 (gray back)
   };
 }
 
-export function Card({
+export const Card = memo(function Card({
   card,
   faceDown = false,
   size = "md",
@@ -118,7 +119,7 @@ export function Card({
     : baseStyle;
 
   if (faceDown || !card) {
-    const backPos = getBackPosition(scale);
+    const backPos = getBackPosition();
 
     if (!animate) {
       return (
@@ -142,7 +143,11 @@ export function Card({
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, delay, ease: "easeOut" }}
-        className={cn(sizeClasses[size], "relative overflow-hidden border border-neutral-900", className)}
+        className={cn(
+          sizeClasses[size],
+          "relative overflow-hidden border border-neutral-900",
+          className,
+        )}
         style={{
           ...animatedStyle,
           backgroundPosition: `${backPos.x}px ${backPos.y}px`,
@@ -157,7 +162,11 @@ export function Card({
   if (!animate) {
     return (
       <div
-        className={cn(sizeClasses[size], "relative overflow-hidden border border-neutral-900", className)}
+        className={cn(
+          sizeClasses[size],
+          "relative overflow-hidden border border-neutral-900",
+          className,
+        )}
         style={{
           ...baseStyle,
           backgroundPosition: `${pos.x}px ${pos.y}px`,
@@ -172,7 +181,11 @@ export function Card({
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, delay, ease: "easeOut" }}
-      className={cn(sizeClasses[size], "relative overflow-hidden border border-neutral-900", className)}
+      className={cn(
+        sizeClasses[size],
+        "relative overflow-hidden border border-neutral-900",
+        className,
+      )}
       style={{
         ...animatedStyle,
         backgroundPosition: `${pos.x}px ${pos.y}px`,
@@ -180,7 +193,7 @@ export function Card({
       aria-label={`${card.rank} of ${card.suit}`}
     />
   );
-}
+});
 
 /**
  * Mini card for compact displays (text-based)

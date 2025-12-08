@@ -56,13 +56,21 @@ export function generatePokerPrompt(context: PokerAgentContext): string {
   };
   const phaseName = phaseNames[currentPhase] || currentPhase;
 
-  // Format opponents
+  // Format opponents with position info
   const opponentLines = opponents
+    .filter((o) => o.status !== "folded")
     .map(
       (o) =>
-        `• ${o.label}: $${o.chipStack.toLocaleString()} stack, $${o.currentBet.toLocaleString()} bet, ${o.status}${o.hasActed ? " (acted)" : ""}`
+        `${o.label}: $${o.chipStack.toLocaleString()}${o.position !== "unknown" ? ` (${o.position})` : ""}, bet $${o.currentBet.toLocaleString()}, ${o.status}${o.hasActed ? " ✓" : ""}`,
     )
-    .join("\n");
+    .join(" | ");
+
+  // Format folded opponents separately (brief)
+  const foldedOpponents = opponents.filter((o) => o.status === "folded");
+  const foldedLine =
+    foldedOpponents.length > 0
+      ? `Folded: ${foldedOpponents.map((o) => o.label).join(", ")}`
+      : "";
 
   // Format betting history for this phase
   const phaseHistory = bettingHistory.filter((h) => h.phase === currentPhase);
@@ -71,10 +79,10 @@ export function generatePokerPrompt(context: PokerAgentContext): string {
       ? phaseHistory
           .map(
             (h) =>
-              `• ${h.label}: ${h.action.toUpperCase()}${h.amount ? ` $${h.amount.toLocaleString()}` : ""}`
+              `${h.label}: ${h.action.toUpperCase()}${h.amount ? ` $${h.amount.toLocaleString()}` : ""}`,
           )
-          .join("\n")
-      : "No actions yet this round";
+          .join(" → ")
+      : "No actions yet";
 
   // Available actions
   let actionsAvailable = "FOLD";
@@ -89,17 +97,26 @@ export function generatePokerPrompt(context: PokerAgentContext): string {
   }
   actionsAvailable += ", ALL-IN";
 
-  return `Hand ${handNumber}/${totalHands} - ${phaseName}
+  // Build prompt with all relevant info
+  let prompt = `Hand ${handNumber}/${totalHands} - ${phaseName}
 
 Cards: ${holeCardsStr} | Board: ${communityStr}
 Pot: $${potSize} | To Call: $${amountToCall} | Stack: $${ownChipStack}
 Position: ${position}${isDealer ? " (D)" : ""} | ${playersToActAfterMe} after you
 
-Opponents: ${opponents.map((o) => `${o.label}($${o.chipStack})`).join(", ")}
+Opponents: ${opponentLines}`;
+
+  if (foldedLine) {
+    prompt += `\n${foldedLine}`;
+  }
+
+  prompt += `\n\nThis round: ${historyLines}
 
 Actions: ${actionsAvailable}
 
 Decide.`;
+
+  return prompt;
 }
 
 /**
@@ -112,11 +129,11 @@ export function parsePokerAction(
     ownBet: number;
     minRaise: number;
     chipStack: number;
-  }
+  },
 ): PokerAction | null {
   // Look for ACTION: pattern
   const actionMatch = text.match(
-    /ACTION:\s*(FOLD|CHECK|CALL|RAISE\s*\$?([\d,]+)|ALL[- ]?IN)/i
+    /ACTION:\s*(FOLD|CHECK|CALL|RAISE\s*\$?([\d,]+)|ALL[- ]?IN)/i,
   );
 
   if (!actionMatch) return null;
@@ -132,12 +149,21 @@ export function parsePokerAction(
     if (context.currentBet <= context.ownBet) {
       return { type: "check" };
     }
-    // If can't check, treat as call
-    return { type: "call" };
+    // If can't check, treat as call with amount
+    const callAmount = Math.min(
+      context.currentBet - context.ownBet,
+      context.chipStack,
+    );
+    return { type: "call", amount: callAmount };
   }
 
   if (actionText === "CALL") {
-    return { type: "call" };
+    // Include the call amount (what player needs to add to match current bet)
+    const callAmount = Math.min(
+      context.currentBet - context.ownBet,
+      context.chipStack,
+    );
+    return { type: "call", amount: callAmount };
   }
 
   if (actionText.startsWith("RAISE")) {
@@ -200,7 +226,7 @@ export function describeHoleCards(cards: Card[]): string {
  */
 export function describeHandStrength(
   holeCards: Card[],
-  communityCards: Card[]
+  communityCards: Card[],
 ): string {
   // Pre-flop
   if (communityCards.length === 0) {
@@ -220,7 +246,7 @@ export function anonymizeOpponents(
   playerStates: Record<
     string,
     { chipStack: number; currentBet: number; status: string; hasActed: boolean }
-  >
+  >,
 ): Array<{
   label: string;
   chipStack: number;

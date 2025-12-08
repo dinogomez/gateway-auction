@@ -6,6 +6,7 @@ import type {
   PokerPlayerState,
   PokerAction,
   BettingPhase,
+  GameFlowPhase,
   PokerAgentContext,
   AnonymizedPokerOpponent,
   AnonymizedPokerHistoryEntry,
@@ -14,8 +15,10 @@ import type {
 } from "@/types/poker";
 import { DEFAULT_POKER_CONFIG } from "@/types/poker";
 import { createDeck, shuffleDeck, dealCardsImmutable } from "@/lib/cards";
+import { ACTION_LOG_LIMIT, DEBUG_LOG_LIMIT } from "@/lib/constants";
 import { evaluateHand, determineWinners } from "@/lib/hand-evaluator";
-import { calculateOdds, type PlayerOdds } from "@/lib/poker-odds";
+import { calculatePots, distributePots } from "@/lib/pot-manager";
+import { calculateOddsAsync, type PlayerOdds } from "@/lib/poker-odds";
 import {
   type PokerCharacter,
   assignCharactersToModels,
@@ -89,6 +92,19 @@ interface PokerStore {
   cancelThinking: () => void;
   setIsProcessing: (value: boolean) => void;
   setLastProcessedTurn: (turnKey: string | null) => void;
+  // Batched action to set both processing state values at once (reduces re-renders)
+  setProcessingState: (isProcessing: boolean, turnKey: string | null) => void;
+
+  // Game flow phase transitions
+  transitionTo: (phase: GameFlowPhase) => void;
+  getFlowPhase: () => GameFlowPhase;
+
+  // Batched state updates for reducing re-renders
+  completeActionBatch: (
+    playerId: string,
+    action: { action: string; amount?: number },
+    flowPhase: GameFlowPhase,
+  ) => void;
 
   // Actions - UI
   addActionLog: (entry: Omit<ActionLogEntry, "id" | "timestamp">) => void;
@@ -123,7 +139,7 @@ interface PokerStore {
 
   // Character/reveal actions
   revealModels: () => void;
-  updateOddsAndHands: () => void;
+  updateOddsAndHands: () => Promise<void>;
   getDisplayName: (playerId: string) => string;
   getDisplayPortrait: (playerId: string) => string;
   getDisplayColor: (playerId: string) => string;
@@ -196,6 +212,9 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
     const playerStates: Record<string, PokerPlayerState> = {};
     const players = [...models];
 
+    // Heads-up special case: BTN is also SB
+    const isHeadsUp = players.length === 2;
+
     players.forEach((model, index) => {
       const { dealt, remaining } = dealCardsImmutable(deck, 2);
       deck = remaining;
@@ -208,8 +227,9 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
         totalBetThisHand: 0,
         status: "active",
         isDealer: index === 0,
-        isSmallBlind: index === 1,
-        isBigBlind: index === 2 % players.length,
+        // In heads-up: BTN (position 0) is also SB
+        isSmallBlind: isHeadsUp ? index === 0 : index === 1,
+        isBigBlind: isHeadsUp ? index === 1 : index === 2 % players.length,
         hasActed: false,
         lastAction: null,
         position: index,
@@ -217,9 +237,9 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
       };
     });
 
-    // Post blinds
-    const sbPosition = 1 % players.length;
-    const bbPosition = 2 % players.length;
+    // Post blinds - different positions for heads-up
+    const sbPosition = isHeadsUp ? 0 : 1 % players.length;
+    const bbPosition = isHeadsUp ? 1 : 2 % players.length;
     const sbPlayerId = players[sbPosition].id;
     const bbPlayerId = players[bbPosition].id;
 
@@ -231,11 +251,14 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
     playerStates[bbPlayerId].totalBetThisHand = DEFAULT_POKER_CONFIG.bigBlind;
     playerStates[bbPlayerId].chipStack -= DEFAULT_POKER_CONFIG.bigBlind;
 
-    const firstToAct = (bbPosition + 1) % players.length;
+    // In heads-up: BTN/SB acts first preflop
+    // In multi-way: player after BB acts first preflop
+    const firstToAct = isHeadsUp ? 0 : (bbPosition + 1) % players.length;
 
     const newGameState: PokerGameState = {
       id: gameId,
       status: "betting",
+      flowPhase: "dealing", // Start with dealing phase for card animation
       players,
       playerStates,
       humanPlayerId,
@@ -383,7 +406,9 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
 
     updatedPlayerStates[playerId] = updatedState;
 
-    // Find next player
+    // Find next player (with guard against empty player list)
+    if (gameState.players.length === 0) return;
+
     let nextPlayerIndex =
       (gameState.currentPlayerIndex + 1) % gameState.players.length;
     let attempts = 0;
@@ -485,15 +510,17 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
         currentPlayerIndex: firstToAct,
         playerStates: updatedPlayerStates,
         status: nextPhase === "showdown" ? "showdown" : "betting",
+        flowPhase:
+          nextPhase === "showdown" ? "awarding_pot" : "awaiting_action",
       },
     });
 
     get().addDebug(`Advanced to ${nextPhase}`);
   },
 
-  // Resolve showdown
+  // Resolve showdown with proper side pot distribution
   resolveShowdown: () => {
-    const { gameState } = get();
+    const { gameState, actionLog, characterMap } = get();
     if (!gameState) return;
 
     const activePlayers = gameState.players.filter(
@@ -502,50 +529,74 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
 
     if (activePlayers.length === 0) return;
 
-    // Evaluate hands
-    const playerHands = activePlayers.map((p) => {
+    // Build player hands map for pot distribution
+    const playerHandsMap = new Map<string, EvaluatedHand>();
+    const playerHandsArray: Array<{ playerId: string; hand: EvaluatedHand }> =
+      [];
+
+    activePlayers.forEach((p) => {
       const state = gameState.playerStates[p.id];
       const hand = evaluateHand(state.holeCards, gameState.communityCards);
-      return { playerId: p.id, hand };
+      playerHandsMap.set(p.id, hand);
+      playerHandsArray.push({ playerId: p.id, hand });
     });
 
-    // Determine winners
-    const winnerIds = determineWinners(playerHands);
+    // Calculate side pots based on all-in amounts
+    const pots = calculatePots(gameState.playerStates);
 
-    // Calculate pot
-    const totalPot = Object.values(gameState.playerStates).reduce(
-      (sum, p) => sum + p.totalBetThisHand,
-      0,
-    );
-    const winAmount = Math.floor(totalPot / winnerIds.length);
+    // Distribute each pot to eligible winners
+    const winnings = distributePots(pots, playerHandsMap);
 
-    // Update chip stacks
+    // Update chip stacks based on winnings
     const updatedPlayerStates = { ...gameState.playerStates };
-    winnerIds.forEach((winnerId) => {
-      updatedPlayerStates[winnerId] = {
-        ...updatedPlayerStates[winnerId],
-        chipStack: updatedPlayerStates[winnerId].chipStack + winAmount,
+    for (const [playerId, amount] of winnings) {
+      updatedPlayerStates[playerId] = {
+        ...updatedPlayerStates[playerId],
+        chipStack: updatedPlayerStates[playerId].chipStack + amount,
       };
-    });
+    }
 
-    const winners = winnerIds.map((winnerId) => {
-      const hand = playerHands.find((h) => h.playerId === winnerId)?.hand;
-      return { playerId: winnerId, amount: winAmount, hand };
+    // Build winners array with their total winnings
+    const winners = Array.from(winnings.entries()).map(
+      ([playerId, amount]) => ({
+        playerId,
+        amount,
+        hand: playerHandsMap.get(playerId),
+      }),
+    );
+
+    // Create win action log entries for each winner
+    const winLogEntries: ActionLogEntry[] = winners.map((winner) => {
+      const character = characterMap[winner.playerId];
+      const handName = winner.hand?.rankName || "Unknown";
+      return {
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+        playerId: "system",
+        playerName: "System",
+        playerColor: "#22c55e",
+        type: "system" as const,
+        content: `${character?.name || winner.playerId} wins $${winner.amount} with ${handName}`,
+        amount: winner.amount,
+      };
     });
 
     set({
       gameState: {
         ...gameState,
         status: "hand_complete",
+        flowPhase: "hand_countdown",
         playerStates: updatedPlayerStates,
+        pots, // Store the calculated pots for reference
       },
       currentHandWinners: winners,
+      actionLog: [...winLogEntries, ...actionLog].slice(0, ACTION_LOG_LIMIT),
     });
   },
 
   // Award pot to winner (fold victory)
   awardPotToWinner: (winnerId) => {
-    const { gameState } = get();
+    const { gameState, actionLog, characterMap } = get();
     if (!gameState) return;
 
     const totalPot = Object.values(gameState.playerStates).reduce(
@@ -559,13 +610,28 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
       chipStack: updatedPlayerStates[winnerId].chipStack + totalPot,
     };
 
+    // Create win action log entry
+    const character = characterMap[winnerId];
+    const winLogEntry: ActionLogEntry = {
+      id: crypto.randomUUID(),
+      timestamp: Date.now(),
+      playerId: "system",
+      playerName: "System",
+      playerColor: "#22c55e",
+      type: "system" as const,
+      content: `${character?.name || winnerId} wins $${totalPot} — All others folded`,
+      amount: totalPot,
+    };
+
     set({
       gameState: {
         ...gameState,
         status: "hand_complete",
+        flowPhase: "hand_countdown",
         playerStates: updatedPlayerStates,
       },
       currentHandWinners: [{ playerId: winnerId, amount: totalPot }],
+      actionLog: [winLogEntry, ...actionLog].slice(0, ACTION_LOG_LIMIT),
     });
   },
 
@@ -579,6 +645,12 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
     let deck = shuffleDeck(createDeck());
 
     const playerStates: Record<string, PokerPlayerState> = {};
+
+    // Count active players (with chips) to determine if heads-up
+    const activePlayers = gameState.players.filter(
+      (p) => gameState.playerStates[p.id].chipStack > 0,
+    );
+    const isHeadsUp = activePlayers.length === 2;
 
     gameState.players.forEach((model, index) => {
       const prevState = gameState.playerStates[model.id];
@@ -615,8 +687,11 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
         totalBetThisHand: 0,
         status: "active",
         isDealer: relativePos === 0,
-        isSmallBlind: relativePos === 1,
-        isBigBlind: relativePos === 2 % gameState.players.length,
+        // In heads-up: BTN (relativePos 0) is also SB
+        isSmallBlind: isHeadsUp ? relativePos === 0 : relativePos === 1,
+        isBigBlind: isHeadsUp
+          ? relativePos === 1
+          : relativePos === 2 % gameState.players.length,
         hasActed: false,
         lastAction: null,
         position: index,
@@ -624,9 +699,13 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
       };
     });
 
-    // Post blinds
-    const sbPosition = (newDealerPosition + 1) % gameState.players.length;
-    const bbPosition = (newDealerPosition + 2) % gameState.players.length;
+    // Post blinds - different positions for heads-up
+    const sbPosition = isHeadsUp
+      ? newDealerPosition
+      : (newDealerPosition + 1) % gameState.players.length;
+    const bbPosition = isHeadsUp
+      ? (newDealerPosition + 1) % gameState.players.length
+      : (newDealerPosition + 2) % gameState.players.length;
     const sbPlayerId = gameState.players[sbPosition].id;
     const bbPlayerId = gameState.players[bbPosition].id;
 
@@ -650,12 +729,17 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
       playerStates[bbPlayerId].chipStack -= bbAmount;
     }
 
-    const firstToAct = (bbPosition + 1) % gameState.players.length;
+    // In heads-up: BTN/SB acts first preflop
+    // In multi-way: player after BB acts first preflop
+    const firstToAct = isHeadsUp
+      ? newDealerPosition
+      : (bbPosition + 1) % gameState.players.length;
 
     set({
       gameState: {
         ...gameState,
         status: "betting",
+        flowPhase: "dealing", // Start with dealing phase for card animation
         playerStates,
         dealerPosition: newDealerPosition,
         smallBlindPosition: sbPosition,
@@ -725,7 +809,7 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
               content: "Analyzing the situation...",
             },
             ...prev.actionLog,
-          ].slice(0, 100),
+          ].slice(0, ACTION_LOG_LIMIT),
     }));
   },
 
@@ -759,13 +843,23 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
     }));
 
     // Async: fetch summary then TRANSFORM the THINKING entry into ACTION entry
-    fetchSummaryAndAddAction(playerId, player, actionText, action, thinkingText, entryIdToTransform, get, set);
+    fetchSummaryAndAddAction(
+      playerId,
+      player,
+      actionText,
+      action,
+      thinkingText,
+      entryIdToTransform,
+      get,
+      set,
+    );
   },
 
   cancelThinking: () => {
     const { thinkingState } = get();
     const playerId = thinkingState.currentPlayerId;
 
+    // Batch all resets together to minimize re-renders
     set((prev) => ({
       thinkingState: {
         isThinking: false,
@@ -774,6 +868,7 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
         error: null,
       },
       isProcessing: false,
+      lastProcessedTurn: null,
       // Remove any THINKING entry
       actionLog: playerId
         ? prev.actionLog.filter(
@@ -789,6 +884,57 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
 
   setLastProcessedTurn: (turnKey) => {
     set({ lastProcessedTurn: turnKey });
+  },
+
+  // Batched action to set both processing state values at once
+  setProcessingState: (isProcessing, turnKey) => {
+    set({ isProcessing, lastProcessedTurn: turnKey });
+  },
+
+  // Game flow phase transitions - validates transitions to prevent invalid states
+  transitionTo: (phase) => {
+    const { gameState, addDebug } = get();
+    if (!gameState) {
+      // Allow transition to 'loading' or 'idle' without game state
+      if (phase === "loading" || phase === "idle") {
+        return;
+      }
+      return;
+    }
+
+    // Update flow phase in game state
+    set({
+      gameState: {
+        ...gameState,
+        flowPhase: phase,
+      },
+    });
+    addDebug(`Flow phase: ${phase}`);
+  },
+
+  getFlowPhase: () => {
+    const { gameState } = get();
+    return gameState?.flowPhase ?? "idle";
+  },
+
+  // Batched action completion - updates multiple state values in single render
+  // Use this instead of calling setIsProcessing, setLastProcessedTurn, setLastAction separately
+  completeActionBatch: (playerId, action, flowPhase) => {
+    const { gameState } = get();
+    if (!gameState) return;
+
+    set({
+      gameState: {
+        ...gameState,
+        flowPhase,
+      },
+      isProcessing: false,
+      lastProcessedTurn: null,
+      lastActions: {
+        ...get().lastActions,
+        [playerId]: action,
+      },
+    });
   },
 
   // UI Actions
@@ -808,7 +954,10 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
   addDebug: (msg) => {
     const timestamp = new Date().toLocaleTimeString();
     set((prev) => ({
-      debugLog: [`[${timestamp}] ${msg}`, ...prev.debugLog].slice(0, 50),
+      debugLog: [`[${timestamp}] ${msg}`, ...prev.debugLog].slice(
+        0,
+        DEBUG_LOG_LIMIT,
+      ),
     }));
   },
 
@@ -828,55 +977,93 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
 
   // Selectors
   buildAgentContext: (playerId) => {
-    const { gameState, models } = get();
+    const { gameState } = get();
     if (!gameState) return null;
 
     const playerState = gameState.playerStates[playerId];
     if (!playerState) return null;
 
-    // Anonymize opponents
-    const opponents: AnonymizedPokerOpponent[] = gameState.players
-      .filter((p) => p.id !== playerId)
-      .map((p, i) => ({
-        label: `Opponent ${String.fromCharCode(65 + i)}`,
-        chipStack: gameState.playerStates[p.id].chipStack,
-        currentBet: gameState.playerStates[p.id].currentBet,
-        status: gameState.playerStates[p.id].status,
-        position: "unknown",
-        hasActed: gameState.playerStates[p.id].hasActed,
-      }));
+    const totalPlayers = gameState.players.length;
+    const dealerIndex = gameState.players.findIndex(
+      (p) => gameState.playerStates[p.id].isDealer,
+    );
 
-    // Anonymize betting history
+    // Helper to calculate position relative to dealer
+    const getPositionLabel = (
+      playerIdx: number,
+    ): "early" | "middle" | "late" | "blinds" => {
+      const pState = gameState.playerStates[gameState.players[playerIdx].id];
+      if (pState.isSmallBlind || pState.isBigBlind) {
+        return "blinds";
+      }
+      if (pState.isDealer) {
+        return "late";
+      }
+
+      // Calculate seats from dealer (dealer is position 0)
+      const seatsFromDealer =
+        (playerIdx - dealerIndex + totalPlayers) % totalPlayers;
+
+      // In a full table: positions 1-3 from dealer are late, 4-6 middle, 7+ early
+      // Scale based on table size
+      const lateThreshold = Math.max(1, Math.floor(totalPlayers * 0.3));
+      const middleThreshold = Math.max(2, Math.floor(totalPlayers * 0.6));
+
+      if (seatsFromDealer <= lateThreshold) {
+        return "late";
+      } else if (seatsFromDealer <= middleThreshold) {
+        return "middle";
+      }
+      return "early";
+    };
+
+    // Create stable opponent ID to label mapping (alphabetical by original index)
+    const opponentPlayers = gameState.players.filter((p) => p.id !== playerId);
+    const opponentIdToLabel: Record<string, string> = {};
+    opponentPlayers.forEach((p, i) => {
+      opponentIdToLabel[p.id] = `Opponent ${String.fromCharCode(65 + i)}`;
+    });
+
+    // Anonymize opponents with position info
+    const opponents: AnonymizedPokerOpponent[] = opponentPlayers.map((p) => {
+      const oppState = gameState.playerStates[p.id];
+      const oppIndex = gameState.players.findIndex((pl) => pl.id === p.id);
+      return {
+        label: opponentIdToLabel[p.id],
+        chipStack: oppState.chipStack,
+        currentBet: oppState.currentBet,
+        status: oppState.status,
+        position: getPositionLabel(oppIndex),
+        hasActed: oppState.hasActed,
+      };
+    });
+
+    // Anonymize betting history using stable ID mapping
     const bettingHistory: AnonymizedPokerHistoryEntry[] =
       gameState.actionHistory.map((entry) => {
         if (entry.playerId === playerId) {
           return { ...entry, label: "You" };
         }
-        const opponentIndex = gameState.players
-          .filter((p) => p.id !== playerId)
-          .findIndex((p) => p.id === entry.playerId);
+        const label = opponentIdToLabel[entry.playerId] || "Unknown";
         return {
           ...entry,
-          label: `Opponent ${String.fromCharCode(65 + opponentIndex)}`,
+          label,
         };
       });
 
-    const playerPosition = gameState.players.findIndex(
-      (p) => p.id === playerId,
-    );
-    const playersAfter = gameState.players.filter((p, i) => {
-      if (i <= playerPosition) return false;
-      return gameState.playerStates[p.id].status === "active";
-    }).length;
+    // Calculate current player's position
+    const playerIndex = gameState.players.findIndex((p) => p.id === playerId);
+    const position = getPositionLabel(playerIndex);
 
-    let position: "early" | "middle" | "late" | "blinds" = "middle";
-    if (playerState.isSmallBlind || playerState.isBigBlind) {
-      position = "blinds";
-    } else if (playerState.isDealer || playersAfter <= 1) {
-      position = "late";
-    } else if (playersAfter >= gameState.players.length - 3) {
-      position = "early";
-    }
+    // Count active players yet to act after current player in betting order
+    const activePlayers = gameState.players.filter(
+      (p) => gameState.playerStates[p.id].status === "active",
+    );
+    const playerOrderIndex = activePlayers.findIndex((p) => p.id === playerId);
+    const playersAfter = activePlayers.filter((p, i) => {
+      if (i <= playerOrderIndex) return false;
+      return !gameState.playerStates[p.id].hasActed;
+    }).length;
 
     return {
       holeCards: playerState.holeCards,
@@ -973,7 +1160,8 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
   },
 
   // Update odds and hand evaluations for active players
-  updateOddsAndHands: () => {
+  // Uses Web Worker for Monte Carlo calculation to avoid blocking main thread
+  updateOddsAndHands: async () => {
     const { gameState } = get();
     if (!gameState) return;
 
@@ -982,11 +1170,19 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
       return state && state.status !== "folded" && state.holeCards.length === 2;
     });
 
-    // Calculate odds
+    // Calculate odds asynchronously via Web Worker
     let playerOdds: Record<string, PlayerOdds> = {};
-    if (activePlayers.length >= 2) {
+    if (activePlayers.length === 1) {
+      // Only one player remaining - they have 100% win probability
+      playerOdds[activePlayers[0].id] = {
+        playerId: activePlayers[0].id,
+        winPercentage: 100,
+        tiePercentage: 0,
+      };
+    } else if (activePlayers.length >= 2) {
       try {
-        const odds = calculateOdds(
+        // Non-blocking: runs in Web Worker thread
+        const odds = await calculateOddsAsync(
           activePlayers.map((p) => ({
             playerId: p.id,
             holeCards: gameState.playerStates[p.id].holeCards,
@@ -1005,7 +1201,7 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
       }
     }
 
-    // Calculate hand evaluations
+    // Calculate hand evaluations (fast, stays on main thread)
     const playerHands: Record<string, EvaluatedHand> = {};
     if (gameState.communityCards.length >= 3) {
       activePlayers.forEach((p) => {
@@ -1074,7 +1270,13 @@ export const usePokerStore = create<PokerStore>((set, get) => ({
 /**
  * Fetch summary from API then TRANSFORM existing THINKING entry into ACTION entry
  * Called by completeThinking - keeps same list item ID for smooth transition
+ *
+ * Uses sequence tracking to prevent race conditions when multiple summaries
+ * are fetched concurrently - only the latest request updates the UI.
  */
+let summarySequence = 0;
+const SUMMARY_TIMEOUT_MS = 5000;
+
 async function fetchSummaryAndAddAction(
   playerId: string,
   player: Model,
@@ -1087,22 +1289,42 @@ async function fetchSummaryAndAddAction(
     partial: Partial<PokerStore> | ((state: PokerStore) => Partial<PokerStore>),
   ) => void,
 ) {
+  // Track sequence to prevent race conditions
+  const mySequence = ++summarySequence;
   let summary = "";
 
   try {
+    // Add timeout via AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), SUMMARY_TIMEOUT_MS);
+
     const response = await fetch("/api/game/summarize-thinking", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ thinking: thinkingText }),
+      body: JSON.stringify({ thinking: thinkingText, action: action.type }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (response.ok) {
       const data = await response.json();
       summary = data.summary?.replace(/^["']|["']$/g, "") || "";
     }
-  } catch {
-    // Use fallback on error
-    summary = extractThinkingSummary(thinkingText);
+  } catch (error) {
+    // Use fallback on error or timeout
+    if ((error as Error).name === "AbortError") {
+      // Timeout - use quick fallback
+      summary = "";
+    } else {
+      summary = extractThinkingSummary(thinkingText);
+    }
+  }
+
+  // Only update if this is still the latest request
+  // This prevents out-of-order updates when multiple AI players act quickly
+  if (mySequence !== summarySequence) {
+    return;
   }
 
   // Transform THINKING entry into ACTION entry (same ID = smooth transition)

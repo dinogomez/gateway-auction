@@ -7,11 +7,11 @@ const redis = Redis.fromEnv();
 /**
  * Layer 1: Per-IP rate limit
  * Prevents single user abuse
- * 10 requests per minute per IP
+ * 60 requests per minute per IP
  */
 export const ipRatelimit = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(10, "1 m"),
+  limiter: Ratelimit.slidingWindow(60, "1 m"),
   analytics: true,
   prefix: "auction:ip",
 });

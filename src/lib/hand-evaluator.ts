@@ -67,15 +67,15 @@ function evaluate5Cards(cards: Card[]): EvaluatedHand {
     };
   }
 
-  // Straight Flush
-  if (isFlush && isStraight) {
+  // Straight Flush (check straightHigh directly for type narrowing)
+  if (isFlush && straightHigh !== null) {
     return {
       rank: HandRank.STRAIGHT_FLUSH,
       rankName: HAND_RANK_NAMES[HandRank.STRAIGHT_FLUSH],
       cards: sorted,
       kickers: [],
       score: calculateScore(HandRank.STRAIGHT_FLUSH, sorted, straightHigh),
-      description: `Straight Flush, ${RANK_NAMES[straightHigh!]} high`,
+      description: `Straight Flush, ${RANK_NAMES[straightHigh]} high`,
     };
   }
 
@@ -83,7 +83,10 @@ function evaluate5Cards(cards: Card[]): EvaluatedHand {
   if (counts[0] === 4) {
     const quadRank = findRankWithCount(rankCounts, 4);
     const quads = sorted.filter((c) => c.rank === quadRank);
-    const kicker = sorted.find((c) => c.rank !== quadRank)!;
+    const kicker = sorted.find((c) => c.rank !== quadRank);
+    if (!kicker) {
+      throw new Error("Invalid hand: no kicker found for four of a kind");
+    }
     return {
       rank: HandRank.FOUR_OF_A_KIND,
       rankName: HAND_RANK_NAMES[HandRank.FOUR_OF_A_KIND],
@@ -122,15 +125,15 @@ function evaluate5Cards(cards: Card[]): EvaluatedHand {
     };
   }
 
-  // Straight
-  if (isStraight) {
+  // Straight (check straightHigh directly for type narrowing)
+  if (straightHigh !== null) {
     return {
       rank: HandRank.STRAIGHT,
       rankName: HAND_RANK_NAMES[HandRank.STRAIGHT],
       cards: sorted,
       kickers: [],
       score: calculateScore(HandRank.STRAIGHT, sorted, straightHigh),
-      description: `Straight, ${RANK_NAMES[straightHigh!]} high`,
+      description: `Straight, ${RANK_NAMES[straightHigh]} high`,
     };
   }
 
@@ -158,7 +161,10 @@ function evaluate5Cards(cards: Card[]): EvaluatedHand {
     const lowPair = sorted.filter((c) => c.rank === pairRanks[1]);
     const kicker = sorted.find(
       (c) => c.rank !== pairRanks[0] && c.rank !== pairRanks[1],
-    )!;
+    );
+    if (!kicker) {
+      throw new Error("Invalid hand: no kicker found for two pair");
+    }
     return {
       rank: HandRank.TWO_PAIR,
       rankName: HAND_RANK_NAMES[HandRank.TWO_PAIR],
@@ -291,7 +297,12 @@ export function evaluateHand(
     }
   }
 
-  return bestHand!;
+  if (!bestHand) {
+    throw new Error(
+      "Failed to evaluate hand: no valid 5-card combination found",
+    );
+  }
+  return bestHand;
 }
 
 /**

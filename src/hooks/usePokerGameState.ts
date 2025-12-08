@@ -88,6 +88,7 @@ export function usePokerGameState(
     const newGameState: PokerGameState = {
       id: gameId,
       status: "betting",
+      flowPhase: "dealing",
       players,
       playerStates,
       humanPlayerId,

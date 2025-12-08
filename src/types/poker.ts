@@ -190,9 +190,24 @@ export type GameStatus =
   | "hand_complete" // hand finished, ready for next
   | "game_over"; // all hands complete
 
+// Game flow phase - granular UI state for managing transitions and preventing timer chaos
+// Works alongside GameStatus for finer-grained control
+export type GameFlowPhase =
+  | "idle" // No active game
+  | "loading" // Loading screen visible
+  | "dealing" // Cards being dealt animation
+  | "awaiting_action" // Waiting for current player to act
+  | "processing_action" // AI thinking or processing action
+  | "action_complete" // Action processed, brief pause before next
+  | "advancing_phase" // Moving to flop/turn/river/showdown
+  | "awarding_pot" // Distributing pot to winner(s)
+  | "hand_countdown" // Countdown to next hand
+  | "game_over"; // Game finished
+
 export interface PokerGameState {
   id: string;
   status: GameStatus;
+  flowPhase: GameFlowPhase; // Granular UI flow state
 
   // Players
   players: Model[];

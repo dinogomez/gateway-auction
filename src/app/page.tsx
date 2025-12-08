@@ -1,12 +1,21 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 
+import { CardBackground } from "@/components/CardBackground";
 import { ModelSelector } from "@/components/ModelSelector";
+import { AboutModal } from "@/components/settings/AboutModal";
+import { MusicIndicator } from "@/components/settings/MusicIndicator";
+import { SettingsModal } from "@/components/settings/SettingsModal";
+import { useSounds, useHydratedMusicStart } from "@/hooks/useSounds";
 import { cn } from "@/lib/utils";
 import type { Model } from "@/types/poker";
 import { DEFAULT_POKER_CONFIG } from "@/types/poker";
+import { getCredits } from "@/app/actions/credits";
+
+type CreditsData = Awaited<ReturnType<typeof getCredits>>;
 
 // Placeholder leaderboard data until Convex is connected
 const mockLeaderboard: Array<{
@@ -29,6 +38,16 @@ export default function Home() {
   const [selectedModels, setSelectedModels] = useState<Model[]>([]);
   const [playMode, setPlayMode] = useState<"spectate" | "play">("spectate");
   const [isStarting, setIsStarting] = useState(false);
+  const [credits, setCredits] = useState<CreditsData | null>(null);
+  const { startMenu, stopMenu } = useSounds();
+
+  // Fetch credits on mount (cached server action, revalidates every 4 hours)
+  useEffect(() => {
+    getCredits().then(setCredits);
+  }, []);
+
+  // Start menu music after hydration (respects mute state)
+  useHydratedMusicStart(startMenu, stopMenu);
 
   // TODO: Uncomment when Convex functions are deployed
   // import { useQuery } from "convex/react";
@@ -44,6 +63,7 @@ export default function Home() {
     if (selectedModels.length < 2) return;
 
     setIsStarting(true);
+    stopMenu(); // Stop menu music before navigating
     sessionStorage.setItem("selectedModels", JSON.stringify(selectedModels));
     sessionStorage.setItem(
       "pokerHumanMode",
@@ -53,15 +73,26 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-neutral-50 relative">
+      <CardBackground cardCount={25} opacity={0.18} />
+      <div className="max-w-6xl mx-auto px-4 py-8 relative z-10">
         {/* Header */}
-        <header className="text-center space-y-4 mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-1 border border-neutral-300 bg-white">
-            <span className="text-neutral-600 text-sm font-mono">
+        <header className="text-center space-y-4 mb-12 relative">
+          <div className="absolute top-0 right-0 flex items-center gap-1">
+            <AboutModal />
+            <MusicIndicator track="menu" />
+            <SettingsModal />
+          </div>
+          <Link
+            className="inline-flex items-center gap-2 px-4 py-1 border border-fuchsia-500 bg-fuchsia-100 hover:scale-105"
+            href="https://ai-gateway-game-hackathon.vercel.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span className="text-fuchsia-500 text-sm font-bold font-mono">
               VERCEL AI HACKATHON
             </span>
-          </div>
+          </Link>
           <h1 className="text-5xl font-mono">
             <span className="text-neutral-900">GATEWAY POKER</span>{" "}
           </h1>
@@ -180,6 +211,44 @@ export default function Home() {
 
           {/* Right: Leaderboard */}
           <div className="space-y-6">
+            {/* Credits Card */}
+            {credits && (
+              <div className="p-6 bg-white border border-neutral-900 shadow-sm">
+                <h3 className="text-sm font-mono font-bold text-neutral-700 mb-4">
+                  REMAINING CREDITS
+                </h3>
+                <div className="flex items-center gap-4">
+                  <div
+                    className={cn(
+                      "text-4xl font-bold font-mono",
+                      credits.percentage > 50
+                        ? "text-neutral-900"
+                        : credits.percentage > 20
+                          ? "text-amber-600"
+                          : "text-red-600",
+                    )}
+                  >
+                    {credits.percentage}%
+                  </div>
+                  <div className="flex-1">
+                    <div className="h-3 bg-neutral-200 overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full transition-all",
+                          credits.percentage > 50
+                            ? "bg-neutral-900"
+                            : credits.percentage > 20
+                              ? "bg-amber-600"
+                              : "bg-red-600",
+                        )}
+                        style={{ width: `${credits.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="p-6 bg-white border border-neutral-900 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-mono font-bold text-neutral-900">

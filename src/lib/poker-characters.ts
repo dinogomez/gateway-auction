@@ -8,6 +8,7 @@ export interface PokerCharacter {
   name: string;
   portrait: string;
   color: string;
+  weight?: number; // Selection weight (default 1.0, lower = rarer)
 }
 
 // Available poker characters with portraits (bright colors for dark UI)
@@ -22,7 +23,7 @@ export const POKER_CHARACTERS: PokerCharacter[] = [
     id: "yoda",
     name: "Yoda",
     portrait: "/assets/portraits/yoda.png",
-    color: "#9ACD32",
+    color: "#556B2F",
   },
   {
     id: "gandalf",
@@ -58,7 +59,7 @@ export const POKER_CHARACTERS: PokerCharacter[] = [
     id: "tyrion",
     name: "Tyrion Lannister",
     portrait: "/assets/portraits/tyrion_lannister.png",
-    color: "#FFD700",
+    color: "#C9A227",
   },
   {
     id: "keanu",
@@ -76,7 +77,7 @@ export const POKER_CHARACTERS: PokerCharacter[] = [
     id: "naruto",
     name: "Naruto",
     portrait: "/assets/portraits/naruto.png",
-    color: "#FF8C00",
+    color: "#FF7518",
   },
   {
     id: "saitama",
@@ -106,7 +107,7 @@ export const POKER_CHARACTERS: PokerCharacter[] = [
     id: "freddie",
     name: "Freddie Mercury",
     portrait: "/assets/portraits/freddie_mercury.png",
-    color: "#FFD700",
+    color: "#E6BE8A",
   },
   {
     id: "wednesday",
@@ -124,13 +125,196 @@ export const POKER_CHARACTERS: PokerCharacter[] = [
     id: "velma",
     name: "Velma",
     portrait: "/assets/portraits/velma_dinkley.png",
-    color: "#FF6347",
+    color: "#E35335",
   },
   {
     id: "light",
     name: "Light Yagami",
     portrait: "/assets/portraits/light_yagami.png",
-    color: "#FF6B6B",
+    color: "#8B0000",
+  },
+  // Scientists & Inventors
+  {
+    id: "ada",
+    name: "Ada Lovelace",
+    portrait: "/assets/portraits/ada_lovelace.png",
+    color: "#9370DB",
+  },
+  {
+    id: "alan",
+    name: "Alan Turing",
+    portrait: "/assets/portraits/alan_turing.png",
+    color: "#4682B4",
+  },
+  {
+    id: "isaac",
+    name: "Isaac Newton",
+    portrait: "/assets/portraits/isaac_newton.png",
+    color: "#8B4513",
+  },
+  {
+    id: "marie",
+    name: "Marie Curie",
+    portrait: "/assets/portraits/marie_curie.png",
+    color: "#20B2AA",
+  },
+  {
+    id: "leonardo",
+    name: "Leonardo da Vinci",
+    portrait: "/assets/portraits/leonardo_da_vinci.png",
+    color: "#DAA520",
+  },
+  {
+    id: "carl",
+    name: "Carl Sagan",
+    portrait: "/assets/portraits/carl_sagan.png",
+    color: "#1E90FF",
+  },
+  {
+    id: "bill_nye",
+    name: "Bill Nye",
+    portrait: "/assets/portraits/bill_nye.png",
+    color: "#0096FF",
+  },
+  // Entertainers & Celebrities
+  {
+    id: "beyonce",
+    name: "Beyoncé",
+    portrait: "/assets/portraits/beyonce.png",
+    color: "#D4AF37",
+  },
+  {
+    id: "dwayne",
+    name: "The Rock",
+    portrait: "/assets/portraits/dwayne_johnson.png",
+    color: "#36454F",
+  },
+  {
+    id: "steve_irwin",
+    name: "Steve Irwin",
+    portrait: "/assets/portraits/steve_irwin.png",
+    color: "#228B22",
+  },
+  {
+    id: "david",
+    name: "David Attenborough",
+    portrait: "/assets/portraits/david_attenborough.png",
+    color: "#355E3B",
+  },
+  // Anime Characters
+  {
+    id: "all_might",
+    name: "All Might",
+    portrait: "/assets/portraits/all_might.png",
+    color: "#0047AB",
+  },
+  {
+    id: "sailor_moon",
+    name: "Sailor Moon",
+    portrait: "/assets/portraits/sailor_moon.png",
+    color: "#FFB6C1",
+  },
+  {
+    id: "pikachu",
+    name: "Pikachu",
+    portrait: "/assets/portraits/pikachu.png",
+    color: "#FFCB05",
+  },
+  {
+    id: "totoro",
+    name: "Totoro",
+    portrait: "/assets/portraits/totoro.png",
+    color: "#808080",
+  },
+  // Cartoon Characters
+  {
+    id: "spongebob",
+    name: "SpongeBob",
+    portrait: "/assets/portraits/spongebob.png",
+    color: "#FFFF00",
+  },
+  {
+    id: "patrick",
+    name: "Patrick Star",
+    portrait: "/assets/portraits/patrick_star.png",
+    color: "#FF69B4",
+  },
+  {
+    id: "scooby",
+    name: "Scooby-Doo",
+    portrait: "/assets/portraits/scooby_doo.png",
+    color: "#7B3F00",
+  },
+  {
+    id: "shrek",
+    name: "Shrek",
+    portrait: "/assets/portraits/shrek.png",
+    color: "#6B8E23",
+  },
+  // Fantasy Characters
+  {
+    id: "hagrid",
+    name: "Hagrid",
+    portrait: "/assets/portraits/hagrid.png",
+    color: "#5C4033",
+  },
+  // Tech & Business (rare - lower weight)
+  {
+    id: "guillermo",
+    name: "Guillermo Rauch",
+    portrait: "/assets/portraits/guillermo_rauch.png",
+    color: "#000000",
+    weight: 0.15,
+  },
+  {
+    id: "evan_you",
+    name: "Evan You",
+    portrait: "/assets/portraits/evan_you.png",
+    color: "#42B883",
+    weight: 0.15,
+  },
+  {
+    id: "tanner",
+    name: "Tanner Linsley",
+    portrait: "/assets/portraits/tanner_linsley.png",
+    color: "#9ACD32",
+    weight: 0.15,
+  },
+  {
+    id: "theo",
+    name: "Theo Browne",
+    portrait: "/assets/portraits/theo_browne.png",
+    color: "#403253",
+    weight: 0.15,
+  },
+  {
+    id: "elon",
+    name: "Elon Musk",
+    portrait: "/assets/portraits/elon_musk.png",
+    color: "#1DA1F2",
+    weight: 0.15,
+  },
+  {
+    id: "jeff",
+    name: "Jeff Bezos",
+    portrait: "/assets/portraits/jeff_bezos.png",
+    color: "#FF9900",
+    weight: 0.15,
+  },
+  {
+    id: "gabe",
+    name: "Gabe Newell",
+    portrait: "/assets/portraits/gabe_newell.png",
+    color: "#1B2838",
+    weight: 0.15,
+  },
+  // Sports (rare)
+  {
+    id: "max",
+    name: "Max Verstappen",
+    portrait: "/assets/portraits/max_verstappen.png",
+    color: "#0600EF",
+    weight: 0.15,
   },
 ];
 
@@ -145,18 +329,59 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
+ * Weighted random selection - picks a character based on weights
+ * Lower weight = less likely to be selected
+ */
+function weightedRandomSelect(
+  characters: PokerCharacter[],
+  excludeIds: Set<string>,
+): PokerCharacter | null {
+  const available = characters.filter((c) => !excludeIds.has(c.id));
+  if (available.length === 0) return null;
+
+  // Calculate total weight
+  const totalWeight = available.reduce(
+    (sum, char) => sum + (char.weight ?? 1.0),
+    0,
+  );
+
+  // Pick a random point in the weight space
+  let random = Math.random() * totalWeight;
+
+  for (const char of available) {
+    const weight = char.weight ?? 1.0;
+    random -= weight;
+    if (random <= 0) {
+      return char;
+    }
+  }
+
+  // Fallback to last character
+  return available[available.length - 1];
+}
+
+/**
  * Assigns random characters to model IDs
  * Returns a mapping of modelId -> character
+ * Uses weighted selection for rare characters
  */
 export function assignCharactersToModels(
   modelIds: string[],
 ): Record<string, PokerCharacter> {
-  const shuffledCharacters = shuffleArray(POKER_CHARACTERS);
   const mapping: Record<string, PokerCharacter> = {};
+  const usedIds = new Set<string>();
 
-  modelIds.forEach((modelId, index) => {
-    mapping[modelId] = shuffledCharacters[index % shuffledCharacters.length];
-  });
+  for (const modelId of modelIds) {
+    const selected = weightedRandomSelect(POKER_CHARACTERS, usedIds);
+    if (selected) {
+      mapping[modelId] = selected;
+      usedIds.add(selected.id);
+    } else {
+      // Fallback if we run out of characters (shouldn't happen)
+      const shuffled = shuffleArray(POKER_CHARACTERS);
+      mapping[modelId] = shuffled[0];
+    }
+  }
 
   return mapping;
 }
