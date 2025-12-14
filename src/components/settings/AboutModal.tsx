@@ -89,6 +89,27 @@ export function AboutModal() {
         </DialogHeader>
 
         <div className="space-y-5">
+          {/* Made by */}
+          <div className="flex items-center gap-3 pb-4 border-b border-neutral-200">
+            <a href="https://dinogomez.app/" target="_blank" rel="noopener noreferrer">
+              <img
+                src="https://avatars.githubusercontent.com/u/41871666?v=4"
+                alt="Dino Gomez"
+                className="w-10 h-10"
+              />
+            </a>
+            <div>
+              <div className="text-xs font-mono text-neutral-500">Made by</div>
+              <a
+                href="https://dinogomez.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-mono font-bold text-neutral-900 hover:underline"
+              >
+                Dino Gomez
+              </a>
+            </div>
+          </div>
           {/* Music */}
           <div className="flex gap-4 items-start">
             <FaceCard

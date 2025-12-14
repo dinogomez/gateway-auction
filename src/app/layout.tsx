@@ -45,6 +45,12 @@ export default function RootLayout({
             />
           </>
         )}
+        {/* Umami Analytics */}
+        <Script
+          defer
+          src="https://cloud.umami.is/script.js"
+          data-website-id="16dd73ae-6c17-4662-bb59-ded86601e308"
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-neutral-100 text-neutral-900 min-h-screen`}

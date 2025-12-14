@@ -7,7 +7,7 @@
  */
 
 import { v } from "convex/values";
-import { internalMutation, internalQuery, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 
 // =============================================================================
@@ -319,49 +319,14 @@ export const tryCreateScheduledGame = internalMutation({
 });
 
 /**
- * Manual trigger to create a scheduled game (for admin use)
+ * Public mutation to manually trigger game creation (for admin/testing)
+ * Can be called via: npx convex run scheduler:manualCreateGame
  */
-export const forceCreateGame = internalMutation({
-  args: {
-    skipChecks: v.optional(v.boolean()),
-  },
-  handler: async (ctx, args) => {
-    if (!args.skipChecks) {
-      // Run normal checks
-      const activeGames = await ctx.db
-        .query("games")
-        .withIndex("by_status", (q) => q.eq("status", "active"))
-        .collect();
-      const waitingGames = await ctx.db
-        .query("games")
-        .withIndex("by_status", (q) => q.eq("status", "waiting"))
-        .collect();
-
-      const liveGames = [...activeGames, ...waitingGames].filter(
-        (g) => !g.isDevGame,
-      );
-
-      if (liveGames.length >= MAX_CONCURRENT_GAMES) {
-        throw new Error(
-          `Cannot create game: ${liveGames.length}/${MAX_CONCURRENT_GAMES} games already active`,
-        );
-      }
-
-      const credits = await ctx.db.query("credits").first();
-      if (credits) {
-        const creditPercentage = credits.limit > 0 ? credits.balance / credits.limit : 1;
-        if (creditPercentage < MIN_CREDIT_PERCENTAGE) {
-          throw new Error(
-            `Cannot create game: Credits at ${(creditPercentage * 100).toFixed(1)}%`,
-          );
-        }
-      }
-    }
-
-    // Delegate to tryCreateScheduledGame
-    // Note: We can't call another mutation directly, so we duplicate the logic
-    // or use scheduler.runAfter with 0 delay
+export const manualCreateGame = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Schedule the game creation
     await ctx.scheduler.runAfter(0, internal.scheduler.tryCreateScheduledGame, {});
-    return { scheduled: true };
+    return { scheduled: true, message: "Game creation scheduled" };
   },
 });

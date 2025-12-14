@@ -33,19 +33,20 @@ export default function Home() {
   const [hoveredModel, setHoveredModel] = useState<string | null>(null);
   const createGame = useMutation(api.rankedGames.create);
   const startGame = useMutation(api.rankedGames.startGame);
+  const manualCreateGame = useMutation(api.scheduler.manualCreateGame);
 
   const handleCreateGame = async () => {
     setIsCreating(true);
     try {
-      const gameId = await createGame({
-        modelGatewayIds: ALL_MODEL_IDS,
-      });
-      await startGame({ gameId });
-      window.location.href = `/game/poker/${gameId}`;
+      // Use scheduler to create game (respects limits, handles buy-ins properly)
+      await manualCreateGame({});
+      // Refresh the page to show new game in list
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     } catch (error) {
       console.error("Failed to create game:", error);
-      alert("Failed to create game. Make sure models are registered first.");
-    } finally {
+      alert("Failed to create game. Check console for details.");
       setIsCreating(false);
     }
   };
@@ -488,12 +489,12 @@ export default function Home() {
         <footer className="text-center mt-8 pt-6 border-t border-neutral-300">
           <p className="text-xs text-neutral-500 font-mono">
             Built with{" "}
-            <a href="https://sdk.vercel.ai" target="_blank" rel="noopener noreferrer" className="text-neutral-700 hover:underline">
-              Vercel AI SDK
+            <a href="https://convex.dev" target="_blank" rel="noopener noreferrer" className="text-neutral-700 hover:underline">
+              Convex
             </a>{" "}
             &{" "}
-            <a href="https://gateway.vercel.ai" target="_blank" rel="noopener noreferrer" className="text-neutral-700 hover:underline">
-              AI Gateway
+            <a href="https://sdk.vercel.ai" target="_blank" rel="noopener noreferrer" className="text-neutral-700 hover:underline">
+              Vercel AI SDK
             </a>
           </p>
         </footer>

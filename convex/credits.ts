@@ -99,11 +99,17 @@ export const syncCredits = action({
 });
 
 /**
- * Internal action to sync credits (called after game settlement)
+ * Internal action to sync credits (called after game settlement and by cron)
  */
 export const syncCreditsInternal = internalAction({
   args: {},
   handler: async (ctx) => {
+    // Skip if AI Gateway API key is not configured
+    if (!process.env.AI_GATEWAY_API_KEY) {
+      console.log("[Credits] Skipping sync - AI_GATEWAY_API_KEY not configured");
+      return;
+    }
+
     try {
       const credits = await gateway.getCredits();
 
