@@ -166,23 +166,27 @@ export function getMinRaise(
 
 /**
  * Check if a player can check (no bet to match)
+ * Player can only check if their current bet exactly matches the table bet
  */
 export function canCheck(
   playerState: PokerPlayerState,
   currentBet: number,
 ): boolean {
-  return playerState.currentBet >= currentBet;
+  return playerState.currentBet === currentBet;
 }
 
 /**
- * Check if a player can call
+ * Check if a player can call (includes partial call/all-in for less)
+ * A player can always call if there's a bet to match and they have chips.
  */
 export function canCall(
   playerState: PokerPlayerState,
   currentBet: number,
 ): boolean {
   const amountToCall = currentBet - playerState.currentBet;
-  return amountToCall > 0 && amountToCall <= playerState.chipStack;
+  // Player can call if there's something to call and they have any chips
+  // Partial calls (all-in for less) are always allowed
+  return amountToCall > 0 && playerState.chipStack > 0;
 }
 
 /**

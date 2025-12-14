@@ -1,88 +1,28 @@
-# Implementation Todos: Fake Items + Speed Up Game
+Grok 4.1
+RAISE
+$550
+Pair of 6s on scary A♣K♣5♠4♣ board (flush completed). BTN position, low SPR~1, pot 1030. Checked to me; bet for thin value vs Ax/draws, protection, fold equity vs worse.
+GPT 5 Mini
+CHECK
+No made hand (J-high) and board is highly coordinated (A♣ K♣ 4♣). Many opponents can have A/K or two clubs to a flush. Betting risks building pot when behind; check to control the pot and see the rive
+Dealing TURN
+GPT 5 Mini
+CHECK
+No pair — just a weak backdoor club draw (needs both turn+river ≈4%). Pot is large vs stacks; betting/raising risks bloating the pot with marginal equity. Check to control pot and see the turn.
+Dealing FLOP
+GPT 5 Mini
+CALL
+$120
+JTs (J♠10♣ offsuit) is a playable, speculative hand but not strong enough to open-shove or make a large isolation raise from MP. Calling 120 preserves stack, gets a cheap flop and keeps options; avoid
 
-## Completed ✅
+GROK 4 skipped
 
-### 1. Add `isFake` to types
-- **File**: `src/types/game.ts`
-- Added `isFake?: boolean` to `AuctionItem` interface (line 16)
-- Added `isFake?: boolean` to `RoundResult` interface (line 55)
+Turn reached 0, agent not folded
 
----
-
-## Pending 🔄
-
-### 2. Update `getRandomItems()` to mark 2 items as fake
-- **File**: `src/lib/items.ts` (line ~245)
-- **Change**: Replace the function with:
-```typescript
-export function getRandomItems(count: number): AuctionItem[] {
-  const shuffled = [...AUCTION_ITEMS].sort(() => Math.random() - 0.5);
-  const items = shuffled.slice(0, count).map((item) => ({ ...item }));
-
-  // Mark 2 random items as fake (if we have at least 2 items)
-  if (count >= 2) {
-    const fakeIndices: number[] = [];
-    while (fakeIndices.length < 2) {
-      const idx = Math.floor(Math.random() * count);
-      if (!fakeIndices.includes(idx)) {
-        fakeIndices.push(idx);
-      }
-    }
-    fakeIndices.forEach((i) => {
-      items[i].isFake = true;
-    });
-  }
-
-  return items;
-}
-```
-
-### 3. Update profit calculation for fake items
-- **File**: `src/hooks/useGameState.ts` (around line 760 in `resolveParallelRound`)
-- **Find**: `const profit = winnerValuation - highestBid;`
-- **Replace with**:
-```typescript
-const isFake = prev.currentItem?.isFake === true;
-const profit = isFake ? -highestBid : (winnerValuation - highestBid);
-```
-
-### 4. Add fake warning to agent prompts
-- **File**: `src/lib/prompts.ts` (in `generateAgentPrompt` function, around line 263)
-- **Add before the return statement**:
-```typescript
-const fakeWarning = `
-### Warning
-2 of the 5 items in this game are FAKES (worthless forgeries).
-If you win a fake, you lose your entire bid.
-`;
-```
-- Include `${fakeWarning}` in the returned template string
-
-### 5. Add FAKE/AUTHENTIC badge to UI
-- **File**: `src/components/RoundSummary.tsx` or `src/components/ItemShowcase.tsx`
-- After round ends, show badge:
-  - Green "AUTHENTIC" if `!item.isFake`
-  - Red "FAKE" if `item.isFake`
-
-### 6. Speed up game delays
-- **File**: `src/app/game/page.tsx`
-  - Line ~471: Change `3500` to `800` (post-thinking wait)
-  - Line ~374: Change `4000` to `800` (stage continue wait)
-
-### 7. Speed up commentary banner
-- **File**: `src/components/CommentaryBanner.tsx`
-  - Line ~53: Change `4000` to `2000` (auto-dismiss delay)
-
----
-
-## Summary
-
-| Task | File | Status |
-|------|------|--------|
-| Add isFake to types | types/game.ts | ✅ Done |
-| Mark 2 items as fake | lib/items.ts | 🔄 Pending |
-| Fake profit calculation | hooks/useGameState.ts | 🔄 Pending |
-| Agent prompt warning | lib/prompts.ts | 🔄 Pending |
-| FAKE/AUTHENTIC badge | RoundSummary.tsx | 🔄 Pending |
-| Speed up game (3500→800, 4000→800) | app/game/page.tsx | 🔄 Pending |
-| Speed up banner (4000→2000) | CommentaryBanner.tsx | 🔄 Pending |
+Uncaught Error: Failed to insert or update a document in table "games" because it does not match the schema: Object is missing the required field `phase`. Consider wrapping the field validator in `v.optional(...)` if this is expected.
+Path: .state.actionLog[20]
+Object: {content: "xai/grok-4.1-fast-reasoning wins $1580 (all others folded)", handNumber: 1.0, timestamp: 1765381459721.0, type: "system"}
+Validator: v.object({action: v.optional(v.string()), amount: v.optional(v.float64()), content: v.optional(v.string()), handNumber: v.optional(v.float64()), phase: v.string(), playerId: v.string(), playerName: v.string(), reasoning: v.optional(v.string()), timestamp: v.float64(), type: v.optional(v.union(v.literal("action"), v.literal("phase"), v.literal("system")))})
+at async handleAllFolded (../convex/rankedGames.ts:1321:29)
+at async advanceToNextPlayerAfterAI (../convex/rankedGames.ts:1931:4)
+at async handler (../convex/rankedGames.ts:1575:11)

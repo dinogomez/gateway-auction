@@ -13,7 +13,12 @@
       "WebFetch(domain:github.com)",
       "Bash(grep:*)",
       "Bash(bun remove:*)",
-      "Bash(bun run lint)"
+      "Bash(bun run lint)",
+      "Bash(npx convex dev --once)",
+      "WebFetch(domain:sdk.vercel.ai)",
+      "Bash(npx tsx:*)",
+      "WebFetch(domain:recharts.org)",
+      "WebFetch(domain:recharts.github.io)"
     ],
     "deny": [],
     "ask": []

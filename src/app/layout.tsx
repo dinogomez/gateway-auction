@@ -2,6 +2,7 @@ import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 import { CRTProvider } from "@/components/crt/CRTProvider";
 import { EffectsBanner } from "@/components/EffectsBanner";
 import { MobileBlocker } from "@/components/MobileBlocker";
+import { env, isDevMode } from "@/env";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
@@ -32,7 +33,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {process.env.NODE_ENV === "development" && (
+        {isDevMode() && (
           <>
             <Script
               src="//unpkg.com/react-grab/dist/index.global.js"

@@ -1,226 +1,405 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import NumberFlow from "@number-flow/react";
 import Link from "next/link";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { ChevronUp, ChevronDown, Play, Eye, Info } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from "recharts";
+import {
+  ChartContainer,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import { formatDistanceToNow } from "date-fns";
+import { useState } from "react";
 
 import { CardBackground } from "@/components/CardBackground";
-import { ModelSelector } from "@/components/ModelSelector";
+import { getModelIcon, getModelColor, getModelShortName, MODEL_CONFIGS } from "@/components/model-icons";
 import { AboutModal } from "@/components/settings/AboutModal";
 import { MusicIndicator } from "@/components/settings/MusicIndicator";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { useSounds, useHydratedMusicStart } from "@/hooks/useSounds";
 import { cn } from "@/lib/utils";
-import type { Model } from "@/types/poker";
-import { DEFAULT_POKER_CONFIG } from "@/types/poker";
-import { getCredits } from "@/app/actions/credits";
+import { env } from "@/env";
 
-type CreditsData = Awaited<ReturnType<typeof getCredits>>;
+const isDevMode = env.NEXT_PUBLIC_DEV_MODE;
 
-// Placeholder leaderboard data until Convex is connected
-const mockLeaderboard: Array<{
-  modelId: string;
-  modelName: string;
-  totalProfit: number;
-  handsPlayed: number;
-  gamesPlayed: number;
-}> = [];
-
-const mockStats = {
-  totalGames: 0,
-  totalHands: 0,
-  totalPlayers: 0,
-  topByProfit: [] as Array<{ modelName: string }>,
-};
+// All model IDs derived from MODEL_CONFIGS (single source of truth)
+const ALL_MODEL_IDS = MODEL_CONFIGS.map((m) => m.gatewayId);
 
 export default function Home() {
-  const router = useRouter();
-  const [selectedModels, setSelectedModels] = useState<Model[]>([]);
-  const [playMode, setPlayMode] = useState<"spectate" | "play">("spectate");
-  const [isStarting, setIsStarting] = useState(false);
-  const [credits, setCredits] = useState<CreditsData | null>(null);
   const { startMenu, stopMenu } = useSounds();
+  const [isCreating, setIsCreating] = useState(false);
+  const [hoveredModel, setHoveredModel] = useState<string | null>(null);
+  const createGame = useMutation(api.rankedGames.create);
+  const startGame = useMutation(api.rankedGames.startGame);
 
-  // Fetch credits on mount (cached server action, revalidates every 4 hours)
-  useEffect(() => {
-    getCredits().then(setCredits);
-  }, []);
+  const handleCreateGame = async () => {
+    setIsCreating(true);
+    try {
+      const gameId = await createGame({
+        modelGatewayIds: ALL_MODEL_IDS,
+      });
+      await startGame({ gameId });
+      window.location.href = `/game/poker/${gameId}`;
+    } catch (error) {
+      console.error("Failed to create game:", error);
+      alert("Failed to create game. Make sure models are registered first.");
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
-  // Start menu music after hydration (respects mute state)
+  // Get credits from Convex
+  const creditsData = useQuery(api.credits.getCredits);
+  const credits = creditsData
+    ? {
+        balance: creditsData.balance,
+        used: creditsData.totalUsed,
+        limit: creditsData.limit,
+        percentage: Math.round((creditsData.balance / creditsData.limit) * 100),
+      }
+    : null;
+
   useHydratedMusicStart(startMenu, stopMenu);
 
-  // TODO: Uncomment when Convex functions are deployed
-  // import { useQuery } from "convex/react";
-  // import { api } from "@/../convex/_generated/api";
-  // const leaderboard = useQuery(api.players.getLeaderboard, { limit: 10 });
-  // const stats = useQuery(api.players.getAllTimeStats, {});
+  // Leaderboard data
+  const leaderboard = useQuery(api.models.getLeaderboard, { limit: 20 });
+  const balanceHistory = useQuery(api.models.getBalanceHistory, { limit: 200 });
+  const gameCount = useQuery(api.rankedGames.getCompletedGameCount);
 
-  // Using mock data for now
-  const leaderboard = mockLeaderboard;
-  const stats = mockStats;
+  // Games data
+  const activeGames = useQuery(api.rankedGames.getActiveGames, { limit: 10 });
+  const recentGames = useQuery(api.rankedGames.getRecentGames, { limit: 20 });
 
-  const handleStartGame = () => {
-    if (selectedModels.length < 2) return;
+  // Scheduler status (for game creation limits)
+  const schedulerStatus = useQuery(api.scheduler.getSchedulerStatus);
 
-    setIsStarting(true);
-    stopMenu(); // Stop menu music before navigating
-    sessionStorage.setItem("selectedModels", JSON.stringify(selectedModels));
-    sessionStorage.setItem(
-      "pokerHumanMode",
-      playMode === "play" ? "true" : "false",
-    );
-    router.push("/game/poker");
-  };
+  // Calculate stats
+  const totalGames = gameCount ?? 0;
+  const totalHands =
+    leaderboard?.reduce((sum, m) => sum + m.handsPlayed, 0) ?? 0;
+  const biggestWin =
+    leaderboard?.reduce((max, m) => Math.max(max, m.biggestWin), 0) ?? 0;
+  const biggestLoss =
+    leaderboard?.reduce((max, m) => Math.max(max, m.biggestLoss), 0) ?? 0;
+
+  // Transform balance history for chart
+  const chartData = (() => {
+    if (!balanceHistory) return [];
+    const allTimestamps = new Set<number>();
+    balanceHistory.forEach((model) => {
+      model.data.forEach((d) => allTimestamps.add(d.timestamp));
+    });
+    const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => a - b);
+    return sortedTimestamps.map((timestamp) => {
+      const point: Record<string, number | string> = {
+        time: new Date(timestamp).toLocaleDateString(),
+        timestamp,
+      };
+      balanceHistory.forEach((model) => {
+        const relevantData = model.data.filter((d) => d.timestamp <= timestamp);
+        const balance =
+          relevantData.length > 0
+            ? relevantData[relevantData.length - 1].balance
+            : 5000;
+        point[model.modelId] = balance;
+      });
+      return point;
+    });
+  })();
+
+  const chartConfig: ChartConfig = balanceHistory
+    ? Object.fromEntries(
+        balanceHistory.map((model) => [
+          model.modelId,
+          { label: model.name, color: getModelColor(model.modelId) },
+        ]),
+      )
+    : {};
+
+  // Combine active and recent games
+  const allGames = [
+    ...(activeGames?.map((g) => ({ ...g, isLive: true })) ?? []),
+    ...(recentGames?.map((g) => ({ ...g, isLive: false })) ?? []),
+  ];
 
   return (
     <div className="min-h-screen bg-neutral-50 relative">
       <CardBackground cardCount={25} opacity={0.18} />
-      <div className="max-w-6xl mx-auto px-4 py-8 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 py-6 relative z-10">
         {/* Header */}
-        <header className="text-center space-y-4 mb-12 relative">
-          <div className="absolute top-0 right-0 flex items-center gap-1">
+        <header className="flex items-start justify-between mb-6">
+          <div>
+            <Link
+              className="inline-flex items-center gap-2 px-3 py-1 border border-fuchsia-500 bg-fuchsia-100 hover:scale-105 text-xs mb-3"
+              href="https://ai-gateway-game-hackathon.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span className="text-fuchsia-500 font-bold font-mono">
+                VERCEL AI HACKATHON
+              </span>
+            </Link>
+            <h1 className="text-4xl font-mono font-bold text-neutral-900">
+              GATEWAY POKER
+            </h1>
+            <p className="text-sm text-neutral-600 font-mono mt-1">
+              Watch AI models compete in Texas Hold&apos;em
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
             <AboutModal />
             <MusicIndicator track="menu" />
             <SettingsModal />
           </div>
-          <Link
-            className="inline-flex items-center gap-2 px-4 py-1 border border-fuchsia-500 bg-fuchsia-100 hover:scale-105"
-            href="https://ai-gateway-game-hackathon.vercel.app/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <span className="text-fuchsia-500 text-sm font-bold font-mono">
-              VERCEL AI HACKATHON
-            </span>
-          </Link>
-          <h1 className="text-5xl font-mono">
-            <span className="text-neutral-900">GATEWAY POKER</span>{" "}
-          </h1>
-          <p className="text-lg text-neutral-700 max-w-xl mx-auto font-mono">
-            Watch AI models compete in Texas Hold&apos;em. Real-time strategic
-            decision making.
-          </p>
         </header>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Left: Game Setup */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Mode Selection */}
-            <div className="p-6 bg-white border border-neutral-900 shadow-sm">
-              <h2 className="text-lg font-mono font-bold mb-4 text-neutral-900">
-                MODE
-              </h2>
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={() => setPlayMode("spectate")}
-                  className={cn(
-                    "p-4 border transition-all text-left",
-                    playMode === "spectate"
-                      ? "border-neutral-900 bg-neutral-900 text-white"
-                      : "border-neutral-300 hover:border-neutral-400 text-neutral-900 bg-white",
-                  )}
-                >
-                  <div className="font-mono font-bold text-lg mb-1">
-                    SPECTATE
-                  </div>
-                  <div
-                    className={cn(
-                      "text-sm font-mono",
-                      playMode === "spectate"
-                        ? "text-neutral-400"
-                        : "text-neutral-700",
-                    )}
+        {/* Two Column Layout */}
+        <div className="grid lg:grid-cols-[1fr_400px] gap-6">
+          {/* Left Column - Stats, Balance History, Rankings */}
+          <div className="space-y-6">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <StatCard label="GAMES" value={totalGames.toLocaleString()} />
+              <StatCard label="HANDS" value={totalHands.toLocaleString()} />
+              <StatCard label="BIGGEST WIN" value={`$${biggestWin.toLocaleString()}`} />
+              <StatCard label="BIGGEST LOSS" value={`$${biggestLoss.toLocaleString()}`} />
+            </div>
+
+            {/* Balance History Chart */}
+            {chartData.length > 0 ? (
+              <div className="bg-white border border-neutral-900">
+                <div className="p-3 border-b border-neutral-900">
+                  <h2 className="text-sm font-mono font-bold text-neutral-900">
+                    BALANCE HISTORY
+                  </h2>
+                </div>
+                <ChartContainer config={chartConfig} className="h-[500px] w-full p-4">
+                  <LineChart
+                    data={chartData}
+                    margin={{ top: 20, right: 120, left: 10, bottom: 20 }}
+                    onMouseLeave={() => setHoveredModel(null)}
                   >
-                    Watch AI models compete
-                  </div>
-                </button>
-                <button
-                  onClick={() => setPlayMode("play")}
-                  className={cn(
-                    "p-4 border transition-all text-left",
-                    playMode === "play"
-                      ? "border-neutral-900 bg-neutral-900 text-white"
-                      : "border-neutral-300 hover:border-neutral-400 text-neutral-900 bg-white",
-                  )}
-                >
-                  <div className="font-mono font-bold text-lg mb-1">PLAY</div>
-                  <div
-                    className={cn(
-                      "text-sm font-mono",
-                      playMode === "play"
-                        ? "text-neutral-400"
-                        : "text-neutral-700",
-                    )}
-                  >
-                    Join and compete
-                  </div>
-                </button>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" opacity={0.5} />
+                    <XAxis
+                      dataKey="time"
+                      tick={{ fontSize: 9, fontFamily: "monospace" }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      domain={["auto", "auto"]}
+                      tick={{ fontSize: 9, fontFamily: "monospace" }}
+                      tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      cursor={{ stroke: "#a3a3a3", strokeWidth: 1, strokeDasharray: "3 3" }}
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload || payload.length === 0) return null;
+                        // Show hovered model info or all models
+                        const items = hoveredModel
+                          ? payload.filter((p: any) => p.dataKey === hoveredModel)
+                          : payload;
+                        if (items.length === 0) return null;
+
+                        return (
+                          <div className="bg-white/95 backdrop-blur border border-neutral-200 shadow-lg p-2 font-mono">
+                            <div className="text-[10px] text-neutral-500 mb-1">{label}</div>
+                            {items.map((item: any) => {
+                              const Icon = getModelIcon(item.dataKey);
+                              const color = getModelColor(item.dataKey);
+                              const shortName = getModelShortName(item.dataKey);
+                              // Access value from payload data point or fall back to item.value
+                              const value = item.payload?.[item.dataKey] ?? item.value ?? 0;
+                              return (
+                                <div key={item.dataKey} className="flex items-center gap-2 py-0.5">
+                                  {Icon && <Icon size={16} />}
+                                  <span className="text-xs font-bold" style={{ color }}>{shortName}</span>
+                                  <span className="text-xs font-bold text-neutral-900">
+                                    ${Number(value).toLocaleString()}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      }}
+                    />
+                    {balanceHistory?.map((model) => {
+                      const Icon = getModelIcon(model.modelId);
+                      const color = getModelColor(model.modelId);
+                      const isHovered = hoveredModel === model.modelId;
+                      const isFaded = hoveredModel !== null && !isHovered;
+                      // Get current balance (last data point)
+                      const lastDataPoint = chartData[chartData.length - 1];
+                      const currentBalance = lastDataPoint?.[model.modelId] as number ?? 5000;
+                      const shortName = getModelShortName(model.modelId);
+
+                      return (
+                        <Line
+                          key={model.modelId}
+                          type="monotone"
+                          dataKey={model.modelId}
+                          name={model.name}
+                          stroke={color}
+                          strokeWidth={isHovered ? 3 : 2}
+                          strokeOpacity={isFaded ? 0.15 : 1}
+                          style={{ transition: 'stroke-opacity 150ms ease-in-out, stroke-width 150ms ease-in-out' }}
+                          onMouseEnter={() => setHoveredModel(model.modelId)}
+                          dot={false}
+                          isAnimationActive={false}
+                          activeDot={(props: any) => {
+                            const { cx, cy } = props;
+                            if (!Icon) return <circle cx={cx} cy={cy} r={6} fill={color} stroke="white" strokeWidth={2} />;
+                            return (
+                              <g transform={`translate(${cx - 8}, ${cy - 8})`}>
+                                <Icon size={16} />
+                              </g>
+                            );
+                          }}
+                          label={(props: any) => {
+                            // Only show label on the last point
+                            const { x, y, index } = props;
+                            if (index !== chartData.length - 1) return null;
+                            const labelOpacity = isFaded ? 0.3 : 1;
+                            return (
+                              <g style={{ opacity: labelOpacity, transition: 'opacity 150ms ease-in-out' }}>
+                                {Icon && (
+                                  <foreignObject x={x + 8} y={y - 10} width={20} height={20}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: labelOpacity, transition: 'opacity 150ms ease-in-out' }}>
+                                      <Icon size={16} />
+                                    </div>
+                                  </foreignObject>
+                                )}
+                                <text
+                                  x={x + 30}
+                                  y={y - 2}
+                                  fontSize={9}
+                                  fontFamily="monospace"
+                                  fontWeight="bold"
+                                  fill={color}
+                                  style={{ transition: 'opacity 150ms ease-in-out' }}
+                                >
+                                  {shortName}
+                                </text>
+                                <text
+                                  x={x + 30}
+                                  y={y + 9}
+                                  fontSize={9}
+                                  fontFamily="monospace"
+                                  fontWeight="bold"
+                                  fill="#171717"
+                                  style={{ transition: 'opacity 150ms ease-in-out' }}
+                                >
+                                  ${currentBalance.toLocaleString()}
+                                </text>
+                              </g>
+                            );
+                          }}
+                        />
+                      );
+                    })}
+                  </LineChart>
+                </ChartContainer>
+                {/* Legend */}
+                <div className="px-4 pb-4 pt-2 border-t border-neutral-200 flex flex-wrap gap-4 justify-center">
+                  {balanceHistory?.map((model) => {
+                    const color = getModelColor(model.modelId);
+                    const shortName = getModelShortName(model.modelId);
+                    return (
+                      <div
+                        key={model.modelId}
+                        className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+                        onMouseEnter={() => setHoveredModel(model.modelId)}
+                        onMouseLeave={() => setHoveredModel(null)}
+                      >
+                        <div
+                          className="w-2 h-2 shrink-0"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="text-xs font-mono font-bold text-neutral-700">
+                          {shortName}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-white border border-neutral-900 h-[550px] flex items-center justify-center">
+                <span className="text-sm font-mono text-neutral-400">No balance history yet</span>
+              </div>
+            )}
 
-            {/* Model Selection */}
-            <div className="p-6 bg-white border border-neutral-900 shadow-sm">
-              <h2 className="text-lg font-mono font-bold mb-4 text-neutral-900">
-                AI PLAYERS
-              </h2>
-              <ModelSelector
-                onSelect={setSelectedModels}
-                disabled={isStarting}
-                minModels={2}
-                maxModels={playMode === "play" ? 9 : 10}
-              />
-            </div>
+            {/* Rankings Table */}
+            <div className="bg-white border border-neutral-900">
+              <div className="p-3 border-b border-neutral-900 flex items-center justify-between">
+                <h2 className="text-sm font-mono font-bold text-neutral-900">
+                  RANKINGS
+                </h2>
+                <span className="text-[10px] font-mono text-white px-2 py-0.5 bg-red-600">
+                  LIVE
+                </span>
+              </div>
 
-            {/* Start Button */}
-            <button
-              onClick={handleStartGame}
-              disabled={selectedModels.length < 2 || isStarting}
-              className={cn(
-                "w-full py-4 font-mono font-bold text-lg transition-colors",
-                selectedModels.length >= 2 && !isStarting
-                  ? "bg-neutral-900 text-white hover:bg-neutral-800"
-                  : "bg-neutral-200 text-neutral-400 cursor-not-allowed",
+              {!leaderboard ? (
+                <div className="p-8 text-center font-mono text-neutral-500 text-sm">
+                  Loading...
+                </div>
+              ) : leaderboard.length === 0 ? (
+                <div className="p-8 text-center font-mono text-neutral-500 text-sm">
+                  No models registered yet.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  {/* Header */}
+                  <div className="grid grid-cols-[40px_30px_1fr_80px_80px_70px_60px_60px] gap-2 p-2 bg-neutral-100 text-[10px] font-mono font-bold text-neutral-500 min-w-[600px]">
+                    <div></div>
+                    <div>#</div>
+                    <div>MODEL</div>
+                    <div>BALANCE</div>
+                    <div>P/L</div>
+                    <div>CHANGE</div>
+                    <div className="text-right">HANDS</div>
+                    <div className="text-center">TYPE</div>
+                  </div>
+                  {/* Rows */}
+                  <div className="divide-y divide-neutral-100 min-w-[600px]">
+                    {leaderboard.map((model, index) => (
+                      <LeaderboardRow key={model._id} model={model} index={index} />
+                    ))}
+                  </div>
+                </div>
               )}
-            >
-              {isStarting ? "STARTING..." : "START GAME"}
-            </button>
-
-            {/* Game Info */}
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="p-4 bg-white border border-neutral-900 shadow-sm">
-                <div className="text-2xl font-bold text-neutral-900 font-mono">
-                  ${DEFAULT_POKER_CONFIG.startingChips.toLocaleString()}
-                </div>
-                <div className="text-xs text-neutral-700 font-mono">CHIPS</div>
-              </div>
-              <div className="p-4 bg-white border border-neutral-900 shadow-sm">
-                <div className="text-2xl font-bold text-neutral-900 font-mono">
-                  {DEFAULT_POKER_CONFIG.totalHands}
-                </div>
-                <div className="text-xs text-neutral-700 font-mono">HANDS</div>
-              </div>
-              <div className="p-4 bg-white border border-neutral-900 shadow-sm">
-                <div className="text-2xl font-bold text-neutral-900 font-mono">
-                  ${DEFAULT_POKER_CONFIG.smallBlind}/$
-                  {DEFAULT_POKER_CONFIG.bigBlind}
-                </div>
-                <div className="text-xs text-neutral-700 font-mono">BLINDS</div>
-              </div>
             </div>
           </div>
 
-          {/* Right: Leaderboard */}
+          {/* Right Column - Credits, New Game, Games List */}
           <div className="space-y-6">
-            {/* Credits Card */}
-            {credits && (
-              <div className="p-6 bg-white border border-neutral-900 shadow-sm">
-                <h3 className="text-sm font-mono font-bold text-neutral-700 mb-4">
-                  REMAINING CREDITS
-                </h3>
-                <div className="flex items-center gap-4">
-                  <div
+            {/* Credits */}
+            {credits ? (
+              <div className="p-3 bg-white border border-neutral-900">
+                <div className="text-[10px] font-mono text-neutral-500 mb-1">CREDITS</div>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-2 bg-neutral-200">
+                    <div
+                      className={cn(
+                        "h-full transition-all",
+                        credits.percentage > 50
+                          ? "bg-neutral-900"
+                          : credits.percentage > 20
+                            ? "bg-amber-600"
+                            : "bg-red-600",
+                      )}
+                      style={{ width: `${credits.percentage}%` }}
+                    />
+                  </div>
+                  <span
                     className={cn(
-                      "text-4xl font-bold font-mono",
+                      "text-lg font-bold font-mono",
                       credits.percentage > 50
                         ? "text-neutral-900"
                         : credits.percentage > 20
@@ -229,201 +408,91 @@ export default function Home() {
                     )}
                   >
                     {credits.percentage}%
-                  </div>
-                  <div className="flex-1">
-                    <div className="h-3 bg-neutral-200 overflow-hidden">
-                      <div
-                        className={cn(
-                          "h-full transition-all",
-                          credits.percentage > 50
-                            ? "bg-neutral-900"
-                            : credits.percentage > 20
-                              ? "bg-amber-600"
-                              : "bg-red-600",
-                        )}
-                        style={{ width: `${credits.percentage}%` }}
-                      />
-                    </div>
-                  </div>
+                  </span>
                 </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-white border border-neutral-900">
+                <div className="text-[10px] font-mono text-neutral-500 mb-1">CREDITS</div>
+                <div className="text-lg font-mono font-bold text-neutral-400">--</div>
               </div>
             )}
 
-            <div className="p-6 bg-white border border-neutral-900 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-mono font-bold text-neutral-900">
-                  LEADERBOARD
-                </h2>
-                <span className="text-xs font-mono text-white px-2 py-1 border border-neutral-900 bg-neutral-900">
-                  LIVE
+            {/* New Game Button */}
+            <button
+              onClick={handleCreateGame}
+              disabled={isCreating || (schedulerStatus && !schedulerStatus.canCreateGame)}
+              title={schedulerStatus?.disabledReason ?? undefined}
+              className={cn(
+                "w-full py-3 font-mono font-bold text-sm transition-colors",
+                isCreating || (schedulerStatus && !schedulerStatus.canCreateGame)
+                  ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
+                  : "bg-neutral-900 text-white hover:bg-neutral-800"
+              )}
+            >
+              {isCreating
+                ? "CREATING..."
+                : schedulerStatus && !schedulerStatus.canCreateGame
+                  ? schedulerStatus.disabledReason ?? "UNAVAILABLE"
+                  : "+ NEW GAME"}
+            </button>
+            {/* Games List */}
+            <div className="bg-white border border-neutral-900">
+              <div className="p-3 border-b border-neutral-900 flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  <h2 className="text-sm font-mono font-bold text-neutral-900">
+                    GAMES
+                  </h2>
+                  <div className="relative group">
+                    <Info className="w-3 h-3 text-neutral-400 cursor-help" />
+                    <div className="absolute left-0 top-full mt-1 w-48 p-2 bg-neutral-900 text-white text-[10px] font-mono rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                      Maximum 2 live games at a time. New games are created automatically every 2 hours.
+                    </div>
+                  </div>
+                </div>
+                <span className="text-[10px] font-mono text-neutral-500">
+                  {activeGames?.length ?? 0} LIVE
                 </span>
               </div>
 
-              {!leaderboard ? (
-                <div className="text-center py-8 text-neutral-700 font-mono">
-                  Loading...
-                </div>
-              ) : leaderboard.length === 0 ? (
-                <div className="text-center py-8 text-neutral-700 font-mono">
-                  No games yet
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {leaderboard.map((player, index) => (
-                    <div
-                      key={player.modelId}
-                      className={cn(
-                        "flex items-center justify-between p-3 border",
-                        index === 0
-                          ? "border-neutral-900 bg-neutral-900 text-white"
-                          : "border-neutral-900 bg-white",
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={cn(
-                            "w-6 h-6 flex items-center justify-center font-mono font-bold text-sm",
-                            index === 0
-                              ? "bg-white text-neutral-900"
-                              : "bg-neutral-100 text-neutral-600",
-                          )}
-                        >
-                          {index + 1}
-                        </span>
-                        <div>
-                          <div className="font-mono font-medium text-sm">
-                            {player.modelName}
-                          </div>
-                          <div
-                            className={cn(
-                              "text-xs font-mono",
-                              index === 0
-                                ? "text-neutral-400"
-                                : "text-neutral-700",
-                            )}
-                          >
-                            {player.handsPlayed} hands
-                          </div>
-                        </div>
-                      </div>
-                      <div
-                        className={cn(
-                          "font-mono font-bold",
-                          index === 0
-                            ? player.totalProfit >= 0
-                              ? "text-white"
-                              : "text-neutral-400"
-                            : player.totalProfit >= 0
-                              ? "text-neutral-900"
-                              : "text-neutral-700",
-                        )}
-                      >
-                        {player.totalProfit >= 0 ? "+" : ""}$
-                        {player.totalProfit.toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="max-h-[600px] overflow-y-auto divide-y divide-neutral-100">
+                {!activeGames && !recentGames ? (
+                  <div className="p-6 text-center font-mono text-neutral-500 text-sm">
+                    Loading...
+                  </div>
+                ) : allGames.length === 0 ? (
+                  <div className="p-6 text-center font-mono text-neutral-500 text-sm">
+                    No games yet. Start one!
+                  </div>
+                ) : (
+                  allGames.map((game) => (
+                    <GameRow key={game._id} game={game} />
+                  ))
+                )}
+              </div>
             </div>
 
-            {/* Stats */}
-            {stats && (
-              <div className="p-6 bg-white border border-neutral-900 shadow-sm">
-                <h3 className="text-sm font-mono font-bold text-neutral-700 mb-4">
-                  ALL-TIME STATS
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-2xl font-bold font-mono text-neutral-900">
-                      {stats.totalGames}
-                    </div>
-                    <div className="text-xs text-neutral-700 font-mono">
-                      GAMES
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold font-mono text-neutral-900">
-                      {stats.totalHands}
-                    </div>
-                    <div className="text-xs text-neutral-700 font-mono">
-                      HANDS
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold font-mono text-neutral-900">
-                      {stats.totalPlayers}
-                    </div>
-                    <div className="text-xs text-neutral-700 font-mono">
-                      MODELS
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold font-mono text-neutral-900">
-                      {stats.topByProfit?.[0]?.modelName?.slice(0, 8) || "-"}
-                    </div>
-                    <div className="text-xs text-neutral-700 font-mono">
-                      TOP
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {/* Admin Link */}
+            {isDevMode && (
+              <Link
+                href="/admin"
+                className="block text-center py-2 text-xs font-mono text-neutral-500 hover:text-neutral-900"
+              >
+                ADMIN &rarr;
+              </Link>
             )}
-
-            {/* How It Works */}
-            <div className="p-6 bg-white border border-neutral-900 shadow-sm">
-              <h3 className="text-sm font-mono font-bold text-neutral-700 mb-4">
-                HOW IT WORKS
-              </h3>
-              <div className="space-y-3 text-sm font-mono">
-                <div className="flex gap-3">
-                  <span className="w-6 h-6 bg-neutral-900 text-white flex items-center justify-center font-bold">
-                    1
-                  </span>
-                  <span className="text-neutral-600">
-                    Each AI receives 2 hole cards
-                  </span>
-                </div>
-                <div className="flex gap-3">
-                  <span className="w-6 h-6 bg-neutral-900 text-white flex items-center justify-center font-bold">
-                    2
-                  </span>
-                  <span className="text-neutral-600">
-                    Watch them bet, raise, or fold
-                  </span>
-                </div>
-                <div className="flex gap-3">
-                  <span className="w-6 h-6 bg-neutral-900 text-white flex items-center justify-center font-bold">
-                    3
-                  </span>
-                  <span className="text-neutral-600">
-                    Best hand wins at showdown
-                  </span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
         {/* Footer */}
-        <footer className="text-center mt-12 pt-8 border-t border-neutral-900">
-          <p className="text-sm text-neutral-700 font-mono">
+        <footer className="text-center mt-8 pt-6 border-t border-neutral-300">
+          <p className="text-xs text-neutral-500 font-mono">
             Built with{" "}
-            <a
-              href="https://sdk.vercel.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-neutral-900 hover:underline"
-            >
+            <a href="https://sdk.vercel.ai" target="_blank" rel="noopener noreferrer" className="text-neutral-700 hover:underline">
               Vercel AI SDK
             </a>{" "}
             &{" "}
-            <a
-              href="https://gateway.vercel.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-neutral-900 hover:underline"
-            >
+            <a href="https://gateway.vercel.ai" target="_blank" rel="noopener noreferrer" className="text-neutral-700 hover:underline">
               AI Gateway
             </a>
           </p>
@@ -432,3 +501,169 @@ export default function Home() {
     </div>
   );
 }
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="p-3 bg-white border border-neutral-900">
+      <div className="text-[10px] font-mono text-neutral-500 mb-1">{label}</div>
+      <div className="text-lg font-mono font-bold text-neutral-900">{value}</div>
+    </div>
+  );
+}
+
+function LeaderboardRow({ model, index }: { model: any; index: number }) {
+  const Icon = getModelIcon(model.gatewayId);
+
+  return (
+    <div className="grid grid-cols-[40px_30px_1fr_80px_80px_70px_60px_60px] gap-2 p-2 hover:bg-neutral-50 items-center text-xs font-mono min-w-[600px]">
+      {/* Rank Change */}
+      <div className="text-center">
+        {model.rankChange !== 0 ? (
+          <span
+            className={cn(
+              "inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold text-white",
+              model.rankChange > 0 ? "bg-green-600" : "bg-red-600",
+            )}
+          >
+            {model.rankChange > 0 ? "+" : ""}{model.rankChange}
+          </span>
+        ) : (
+          <span className="text-neutral-300">-</span>
+        )}
+      </div>
+
+      {/* Rank */}
+      <span className="w-5 h-5 flex items-center justify-center text-[10px] font-bold bg-neutral-100 text-neutral-600">
+        {index + 1}
+      </span>
+
+      {/* Model Icon & Name */}
+      <div className="flex items-center gap-2 min-w-0">
+        {Icon && (
+          <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+            <Icon size={24} />
+          </div>
+        )}
+        <div className="min-w-0">
+          <div className="font-bold truncate">{model.name}</div>
+          <div className="text-[10px] text-neutral-400">{model.provider}</div>
+        </div>
+      </div>
+
+      {/* Balance */}
+      <div className={cn(
+        "font-bold tabular-nums",
+        model.balance < 0 && "text-red-600",
+      )}>
+        <span className="inline-block w-2 text-right">{model.balance < 0 ? "-" : ""}</span>${Math.abs(model.balance).toLocaleString()}
+      </div>
+
+      {/* P/L */}
+      <div
+        className={cn(
+          "flex items-center gap-0.5",
+          model.profit >= 0 ? "text-green-600" : "text-red-600",
+        )}
+      >
+        {model.profit >= 0 ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        {model.profit < 0 ? "-" : ""}${Math.abs(model.profit).toLocaleString()}
+      </div>
+
+      {/* Change % */}
+      <div
+        className={cn(
+          "flex items-center gap-0.5 text-[10px]",
+          model.percentChange >= 0 ? "text-green-600" : "text-red-600",
+        )}
+      >
+        {model.percentChange >= 0 ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        {Math.abs(model.percentChange).toFixed(1)}%
+      </div>
+
+      {/* Hands */}
+      <div className="text-neutral-600 text-center">
+        {model.handsPlayed.toLocaleString()}
+      </div>
+
+      {/* Type Badge */}
+      <span
+        className={cn(
+          "text-[9px] font-bold px-1.5 py-0.5 text-center",
+          model.playerType === "BALANCED" && "bg-green-100 text-green-700",
+          model.playerType === "RISKY" && "bg-orange-100 text-orange-700",
+          model.playerType === "TIGHT" && "bg-blue-100 text-blue-700",
+          model.playerType === "LOOSE" && "bg-red-100 text-red-700",
+          model.playerType === "NEW" && "bg-neutral-100 text-neutral-500",
+        )}
+      >
+        {model.playerType}
+      </span>
+    </div>
+  );
+}
+
+function GameRow({ game }: { game: any }) {
+  const totalPot = game.state?.pot ?? 0;
+  const currentHand = game.currentHand ?? 0;
+  const maxHands = game.maxHands ?? 25;
+  const progress = (currentHand / maxHands) * 100;
+
+  return (
+    <Link href={`/game/poker/${game._id}`} className="block">
+      <div className={cn(
+        "p-3 hover:bg-neutral-50 transition-colors",
+        game.isLive && "bg-green-50 hover:bg-green-100",
+      )}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            {game.isLive ? (
+              <span className="flex items-center gap-1 text-[10px] font-mono text-white px-1.5 py-0.5 bg-red-600">
+                <span className="w-1.5 h-1.5 bg-white animate-pulse rounded-full" />
+                LIVE
+              </span>
+            ) : (
+              <span className="text-[10px] font-mono text-neutral-400 px-1.5 py-0.5 bg-neutral-100">
+                {game.status?.toUpperCase()}
+              </span>
+            )}
+            <span className="text-xs font-mono font-bold text-neutral-900">
+              #{game._id.slice(-6).toUpperCase()}
+            </span>
+          </div>
+          <span className="text-[10px] font-mono text-neutral-400">
+            {formatDistanceToNow(game.createdAt, { addSuffix: true })}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between text-[10px] font-mono text-neutral-500 mb-1">
+          <span>{game.playerModelIds?.length ?? 0} players</span>
+          <span>Hand <NumberFlow value={currentHand} />/{maxHands}</span>
+        </div>
+
+        <div className="h-1.5 bg-neutral-200 mb-2">
+          <div
+            className={cn(
+              "h-full transition-all",
+              game.isLive ? "bg-green-500" : "bg-neutral-400",
+            )}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-mono font-bold">
+            POT: $<NumberFlow value={totalPot} />
+          </span>
+          <span className={cn(
+            "flex items-center gap-1 text-[10px] font-mono",
+            game.isLive ? "text-green-700" : "text-neutral-500",
+          )}>
+            {game.isLive ? <Play className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+            {game.isLive ? "WATCH" : "REPLAY"}
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
