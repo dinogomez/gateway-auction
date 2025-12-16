@@ -1,30 +1,29 @@
 "use client";
 
-import NumberFlow from "@number-flow/react";
-import Link from "next/link";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import { ChevronUp, ChevronDown, Play, Eye, Info } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from "recharts";
 import {
   ChartContainer,
   type ChartConfig,
 } from "@/components/ui/chart";
+import NumberFlow from "@number-flow/react";
+import { useMutation, useQuery } from "convex/react";
 import { formatDistanceToNow } from "date-fns";
+import { ChevronDown, ChevronUp, Eye, Info, Play } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
+import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
+import { api } from "../../convex/_generated/api";
 
 import { CardBackground } from "@/components/CardBackground";
-import { getModelIcon, getModelColor, getModelShortName, MODEL_CONFIGS } from "@/components/model-icons";
+import { getModelColor, getModelIcon, getModelShortName, MODEL_CONFIGS } from "@/components/model-icons";
 import { AboutModal } from "@/components/settings/AboutModal";
 import { MusicIndicator } from "@/components/settings/MusicIndicator";
 import { SettingsModal } from "@/components/settings/SettingsModal";
-import { useSounds, useHydratedMusicStart } from "@/hooks/useSounds";
-import { cn } from "@/lib/utils";
 import { env } from "@/env";
+import { useHydratedMusicStart, useSounds } from "@/hooks/useSounds";
+import { cn } from "@/lib/utils";
 
 const isDevMode = env.NEXT_PUBLIC_DEV_MODE;
 
-// All model IDs derived from MODEL_CONFIGS (single source of truth)
 const ALL_MODEL_IDS = MODEL_CONFIGS.map((m) => m.gatewayId);
 
 export default function Home() {
@@ -38,9 +37,7 @@ export default function Home() {
   const handleCreateGame = async () => {
     setIsCreating(true);
     try {
-      // Use scheduler to create game (respects limits, handles buy-ins properly)
       await manualCreateGame({});
-      // Refresh the page to show new game in list
       setTimeout(() => {
         window.location.reload();
       }, 1500);
@@ -51,41 +48,35 @@ export default function Home() {
     }
   };
 
-  // Get credits from Convex
   const creditsData = useQuery(api.credits.getCredits);
   const credits = creditsData
     ? {
-        balance: creditsData.balance,
-        used: creditsData.totalUsed,
-        limit: creditsData.limit,
-        percentage: Math.round((creditsData.balance / creditsData.limit) * 100),
-      }
+      balance: creditsData.balance,
+      used: creditsData.totalUsed,
+      limit: creditsData.limit,
+      percentage: Math.min(100, Math.round((creditsData.balance / creditsData.limit) * 100)),
+    }
     : null;
 
   useHydratedMusicStart(startMenu, stopMenu);
 
-  // Leaderboard data
   const leaderboard = useQuery(api.models.getLeaderboard, { limit: 20 });
   const balanceHistory = useQuery(api.models.getBalanceHistory, { limit: 200 });
   const gameCount = useQuery(api.rankedGames.getCompletedGameCount);
 
-  // Games data
   const activeGames = useQuery(api.rankedGames.getActiveGames, { limit: 10 });
   const recentGames = useQuery(api.rankedGames.getRecentGames, { limit: 20 });
 
-  // Scheduler status (for game creation limits)
   const schedulerStatus = useQuery(api.scheduler.getSchedulerStatus);
 
-  // Calculate stats
   const totalGames = gameCount ?? 0;
   const totalHands =
     leaderboard?.reduce((sum, m) => sum + m.handsPlayed, 0) ?? 0;
   const biggestWin =
     leaderboard?.reduce((max, m) => Math.max(max, m.biggestWin), 0) ?? 0;
   const biggestLoss =
-    leaderboard?.reduce((max, m) => Math.max(max, m.biggestLoss), 0) ?? 0;
+    Math.abs(leaderboard?.reduce((min, m) => Math.min(min, m.biggestLoss), 0) ?? 0);
 
-  // Transform balance history for chart
   const chartData = (() => {
     if (!balanceHistory) return [];
     const allTimestamps = new Set<number>();
@@ -112,14 +103,13 @@ export default function Home() {
 
   const chartConfig: ChartConfig = balanceHistory
     ? Object.fromEntries(
-        balanceHistory.map((model) => [
-          model.modelId,
-          { label: model.name, color: getModelColor(model.modelId) },
-        ]),
-      )
+      balanceHistory.map((model) => [
+        model.modelId,
+        { label: model.name, color: getModelColor(model.modelId) },
+      ]),
+    )
     : {};
 
-  // Combine active and recent games
   const allGames = [
     ...(activeGames?.map((g) => ({ ...g, isLive: true })) ?? []),
     ...(recentGames?.map((g) => ({ ...g, isLive: false })) ?? []),
@@ -129,7 +119,6 @@ export default function Home() {
     <div className="min-h-screen bg-neutral-50 relative">
       <CardBackground cardCount={25} opacity={0.18} />
       <div className="max-w-7xl mx-auto px-4 py-6 relative z-10">
-        {/* Header */}
         <header className="flex items-start justify-between mb-6">
           <div>
             <Link
@@ -150,17 +139,22 @@ export default function Home() {
             </p>
           </div>
           <div className="flex items-center gap-1">
+            {isDevMode && (
+              <Link
+                href="/admin"
+                className="px-2 py-1 text-xs font-mono text-neutral-500 hover:text-neutral-900"
+              >
+                ADMIN
+              </Link>
+            )}
             <AboutModal />
             <MusicIndicator track="menu" />
             <SettingsModal />
           </div>
         </header>
 
-        {/* Two Column Layout */}
         <div className="grid lg:grid-cols-[1fr_400px] gap-6">
-          {/* Left Column - Stats, Balance History, Rankings */}
           <div className="space-y-6">
-            {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <StatCard label="GAMES" value={totalGames.toLocaleString()} />
               <StatCard label="HANDS" value={totalHands.toLocaleString()} />
@@ -168,7 +162,6 @@ export default function Home() {
               <StatCard label="BIGGEST LOSS" value={`$${biggestLoss.toLocaleString()}`} />
             </div>
 
-            {/* Balance History Chart */}
             {chartData.length > 0 ? (
               <div className="bg-white border border-neutral-900">
                 <div className="p-3 border-b border-neutral-900">
@@ -200,7 +193,6 @@ export default function Home() {
                       cursor={{ stroke: "#a3a3a3", strokeWidth: 1, strokeDasharray: "3 3" }}
                       content={({ active, payload, label }) => {
                         if (!active || !payload || payload.length === 0) return null;
-                        // Show hovered model info or all models
                         const items = hoveredModel
                           ? payload.filter((p: any) => p.dataKey === hoveredModel)
                           : payload;
@@ -213,7 +205,6 @@ export default function Home() {
                               const Icon = getModelIcon(item.dataKey);
                               const color = getModelColor(item.dataKey);
                               const shortName = getModelShortName(item.dataKey);
-                              // Access value from payload data point or fall back to item.value
                               const value = item.payload?.[item.dataKey] ?? item.value ?? 0;
                               return (
                                 <div key={item.dataKey} className="flex items-center gap-2 py-0.5">
@@ -234,7 +225,6 @@ export default function Home() {
                       const color = getModelColor(model.modelId);
                       const isHovered = hoveredModel === model.modelId;
                       const isFaded = hoveredModel !== null && !isHovered;
-                      // Get current balance (last data point)
                       const lastDataPoint = chartData[chartData.length - 1];
                       const currentBalance = lastDataPoint?.[model.modelId] as number ?? 5000;
                       const shortName = getModelShortName(model.modelId);
@@ -242,7 +232,7 @@ export default function Home() {
                       return (
                         <Line
                           key={model.modelId}
-                          type="monotone"
+                          type="linear"
                           dataKey={model.modelId}
                           name={model.name}
                           stroke={color}
@@ -262,7 +252,6 @@ export default function Home() {
                             );
                           }}
                           label={(props: any) => {
-                            // Only show label on the last point
                             const { x, y, index } = props;
                             if (index !== chartData.length - 1) return null;
                             const labelOpacity = isFaded ? 0.3 : 1;
@@ -292,7 +281,7 @@ export default function Home() {
                                   fontSize={9}
                                   fontFamily="monospace"
                                   fontWeight="bold"
-                                  fill="#171717"
+                                  fill={currentBalance >= 5000 ? "#16a34a" : "#dc2626"}
                                   style={{ transition: 'opacity 150ms ease-in-out' }}
                                 >
                                   ${currentBalance.toLocaleString()}
@@ -305,7 +294,6 @@ export default function Home() {
                     })}
                   </LineChart>
                 </ChartContainer>
-                {/* Legend */}
                 <div className="px-4 pb-4 pt-2 border-t border-neutral-200 flex flex-wrap gap-4 justify-center">
                   {balanceHistory?.map((model) => {
                     const color = getModelColor(model.modelId);
@@ -335,7 +323,6 @@ export default function Home() {
               </div>
             )}
 
-            {/* Rankings Table */}
             <div className="bg-white border border-neutral-900">
               <div className="p-3 border-b border-neutral-900 flex items-center justify-between">
                 <h2 className="text-sm font-mono font-bold text-neutral-900">
@@ -356,7 +343,6 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  {/* Header */}
                   <div className="grid grid-cols-[40px_30px_1fr_80px_80px_70px_60px_60px] gap-2 p-2 bg-neutral-100 text-[10px] font-mono font-bold text-neutral-500 min-w-[600px]">
                     <div></div>
                     <div>#</div>
@@ -367,7 +353,6 @@ export default function Home() {
                     <div className="text-right">HANDS</div>
                     <div className="text-center">TYPE</div>
                   </div>
-                  {/* Rows */}
                   <div className="divide-y divide-neutral-100 min-w-[600px]">
                     {leaderboard.map((model, index) => (
                       <LeaderboardRow key={model._id} model={model} index={index} />
@@ -378,11 +363,9 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Right Column - Credits, New Game, Games List */}
-          <div className="space-y-6">
-            {/* Credits */}
+          <div className="flex flex-col gap-6 lg:self-start">
             {credits ? (
-              <div className="p-3 bg-white border border-neutral-900">
+              <div className="p-3 bg-white border border-neutral-900 shrink-0">
                 <div className="text-[10px] font-mono text-neutral-500 mb-1">CREDITS</div>
                 <div className="flex items-center gap-3">
                   <div className="flex-1 h-2 bg-neutral-200">
@@ -413,19 +396,18 @@ export default function Home() {
                 </div>
               </div>
             ) : (
-              <div className="p-3 bg-white border border-neutral-900">
+              <div className="p-3 bg-white border border-neutral-900 shrink-0">
                 <div className="text-[10px] font-mono text-neutral-500 mb-1">CREDITS</div>
                 <div className="text-lg font-mono font-bold text-neutral-400">--</div>
               </div>
             )}
 
-            {/* New Game Button */}
             <button
               onClick={handleCreateGame}
               disabled={isCreating || (schedulerStatus && !schedulerStatus.canCreateGame)}
               title={schedulerStatus?.disabledReason ?? undefined}
               className={cn(
-                "w-full py-3 font-mono font-bold text-sm transition-colors",
+                "w-full py-3 font-mono font-bold text-sm transition-colors shrink-0",
                 isCreating || (schedulerStatus && !schedulerStatus.canCreateGame)
                   ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
                   : "bg-neutral-900 text-white hover:bg-neutral-800"
@@ -437,26 +419,25 @@ export default function Home() {
                   ? schedulerStatus.disabledReason ?? "UNAVAILABLE"
                   : "+ NEW GAME"}
             </button>
-            {/* Games List */}
-            <div className="bg-white border border-neutral-900">
-              <div className="p-3 border-b border-neutral-900 flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <h2 className="text-sm font-mono font-bold text-neutral-900">
-                    GAMES
-                  </h2>
-                  <div className="relative group">
-                    <Info className="w-3 h-3 text-neutral-400 cursor-help" />
-                    <div className="absolute left-0 top-full mt-1 w-48 p-2 bg-neutral-900 text-white text-[10px] font-mono rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                      Maximum 2 live games at a time. New games are created automatically every 2 hours.
-                    </div>
+
+            <div className="bg-white border border-neutral-900 flex flex-col min-h-0 max-h-[992px]">              <div className="p-3 border-b border-neutral-900 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-1">
+                <h2 className="text-sm font-mono font-bold text-neutral-900">
+                  GAMES
+                </h2>
+                <div className="relative group">
+                  <Info className="w-3 h-3 text-neutral-400 cursor-help" />
+                  <div className="absolute left-0 top-full mt-1 w-48 p-2 bg-neutral-900 text-white text-[10px] font-mono rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                    Maximum 2 live games at a time. New games are created automatically every 2 hours.
                   </div>
                 </div>
-                <span className="text-[10px] font-mono text-neutral-500">
-                  {activeGames?.length ?? 0} LIVE
-                </span>
               </div>
+              <span className="text-[10px] font-mono text-neutral-500">
+                {activeGames?.length ?? 0} LIVE
+              </span>
+            </div>
 
-              <div className="max-h-[600px] overflow-y-auto divide-y divide-neutral-100">
+              <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-neutral-100">
                 {!activeGames && !recentGames ? (
                   <div className="p-6 text-center font-mono text-neutral-500 text-sm">
                     Loading...
@@ -472,20 +453,9 @@ export default function Home() {
                 )}
               </div>
             </div>
-
-            {/* Admin Link */}
-            {isDevMode && (
-              <Link
-                href="/admin"
-                className="block text-center py-2 text-xs font-mono text-neutral-500 hover:text-neutral-900"
-              >
-                ADMIN &rarr;
-              </Link>
-            )}
           </div>
         </div>
 
-        {/* Footer */}
         <footer className="text-center mt-8 pt-6 border-t border-neutral-300">
           <p className="text-xs text-neutral-500 font-mono">
             Built with{" "}
@@ -517,7 +487,6 @@ function LeaderboardRow({ model, index }: { model: any; index: number }) {
 
   return (
     <div className="grid grid-cols-[40px_30px_1fr_80px_80px_70px_60px_60px] gap-2 p-2 hover:bg-neutral-50 items-center text-xs font-mono min-w-[600px]">
-      {/* Rank Change */}
       <div className="text-center">
         {model.rankChange !== 0 ? (
           <span
@@ -526,19 +495,18 @@ function LeaderboardRow({ model, index }: { model: any; index: number }) {
               model.rankChange > 0 ? "bg-green-600" : "bg-red-600",
             )}
           >
-            {model.rankChange > 0 ? "+" : ""}{model.rankChange}
+            {model.rankChange > 0 ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            {Math.abs(model.rankChange)}
           </span>
         ) : (
           <span className="text-neutral-300">-</span>
         )}
       </div>
 
-      {/* Rank */}
       <span className="w-5 h-5 flex items-center justify-center text-[10px] font-bold bg-neutral-100 text-neutral-600">
         {index + 1}
       </span>
 
-      {/* Model Icon & Name */}
       <div className="flex items-center gap-2 min-w-0">
         {Icon && (
           <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
@@ -551,7 +519,6 @@ function LeaderboardRow({ model, index }: { model: any; index: number }) {
         </div>
       </div>
 
-      {/* Balance */}
       <div className={cn(
         "font-bold tabular-nums",
         model.balance < 0 && "text-red-600",
@@ -559,7 +526,6 @@ function LeaderboardRow({ model, index }: { model: any; index: number }) {
         <span className="inline-block w-2 text-right">{model.balance < 0 ? "-" : ""}</span>${Math.abs(model.balance).toLocaleString()}
       </div>
 
-      {/* P/L */}
       <div
         className={cn(
           "flex items-center gap-0.5",
@@ -570,7 +536,6 @@ function LeaderboardRow({ model, index }: { model: any; index: number }) {
         {model.profit < 0 ? "-" : ""}${Math.abs(model.profit).toLocaleString()}
       </div>
 
-      {/* Change % */}
       <div
         className={cn(
           "flex items-center gap-0.5 text-[10px]",
@@ -581,12 +546,10 @@ function LeaderboardRow({ model, index }: { model: any; index: number }) {
         {Math.abs(model.percentChange).toFixed(1)}%
       </div>
 
-      {/* Hands */}
       <div className="text-neutral-600 text-center">
         {model.handsPlayed.toLocaleString()}
       </div>
 
-      {/* Type Badge */}
       <span
         className={cn(
           "text-[9px] font-bold px-1.5 py-0.5 text-center",
@@ -667,4 +630,3 @@ function GameRow({ game }: { game: any }) {
     </Link>
   );
 }
-
