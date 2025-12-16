@@ -232,7 +232,7 @@ export default function Home() {
                       return (
                         <Line
                           key={model.modelId}
-                          type="linear"
+                          type="monotone"
                           dataKey={model.modelId}
                           name={model.name}
                           stroke={color}
