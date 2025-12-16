@@ -118,8 +118,8 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-neutral-50 relative">
       <CardBackground cardCount={25} opacity={0.18} />
-      <div className="max-w-7xl mx-auto px-4 py-6 relative z-10">
-        <header className="flex items-start justify-between mb-6">
+      <div className="max-w-[1400px] mx-auto px-4 py-6 relative z-10">
+        <header className="grid lg:grid-cols-[1fr_400px] gap-6 mb-6">
           <div>
             <Link
               className="inline-flex items-center gap-2 px-3 py-1 border border-fuchsia-500 bg-fuchsia-100 hover:scale-105 text-xs mb-3"
@@ -138,7 +138,7 @@ export default function Home() {
               Watch AI models compete in Texas Hold&apos;em
             </p>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center justify-end gap-1">
             {isDevMode && (
               <Link
                 href="/admin"

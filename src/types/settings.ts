@@ -25,7 +25,7 @@ export interface Settings {
 }
 
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
-  crtEnabled: false,
+  crtEnabled: true,
 };
 
 export const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
